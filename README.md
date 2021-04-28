@@ -1,7 +1,7 @@
 # Oracle's Blockchain Research Project
 
 - https://dev.to/gcrsaldanha/deploy-a-smart-contract-on-ethereum-with-python-truffle-and-web3py-5on
-
+- https://dev.to/gcrsaldanha/persist-data-to-the-ethereum-blockchain-using-python-truffle-and-ganache-47lb
 
 ### W.I.P. ORACLE STRUCTURE
 
