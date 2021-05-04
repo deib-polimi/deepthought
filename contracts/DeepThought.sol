@@ -37,6 +37,9 @@ contract Oracle /*is usingOraclize*/ {
         // Decided outcome
         VoteOption decision;
 
+        // between 0 to 100
+        uint prediction;
+
         // Total voting value for each option
         mapping (VoteOption => uint) votes;
         
@@ -129,7 +132,7 @@ contract Oracle /*is usingOraclize*/ {
         return prop_id;
     }
     
-    function vote(uint256 _prop_id, bytes32 _hashedVote) public {
+    function vote(uint256 _prop_id, bytes32 _hashedVote, uint _predictionPercent) public {
         require (voting_stakes[msg.sender][_prop_id] > 0, "Not a voter of that proposition! Make a request");
         //uint stake = voting_stakes[msg.sender][_prop_id];
         //uint vote = normalize_vote_weight(stake, reputations[msg.sender]);
