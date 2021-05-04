@@ -53,6 +53,9 @@ contract Oracle /*is usingOraclize*/ {
         
         uint256 num_voters;
         
+        // voters certainty for the outcome
+        mapping(address => uint) prediction_cert;
+        
         mapping (address => mapping (bool => uint256)) certifier_stakes;
         
         mapping(address => uint256) voters_stakes;
@@ -220,6 +223,22 @@ contract Oracle /*is usingOraclize*/ {
         uint256 stake = proposition.certifier_stakes[_certifier][_outcome];
         return stake;
     }
+    
+    function assign_score(uint _prop_id, address _voter, bool _outcome) internal returns(uint){
+        Proposition storage prop = propositions[_prop_id];
+        require(prop.status == PropositionStatus.VotingClose);
+        uint result;
+        uint q = prop.prediction_cert[_voter];
+        if(_outcome)
+        {
+            result = prop.voters_unsealedVotes[_voter]==VoteOption.True ? 2*q-q*q : 1-q*q;
+        }
+        else
+        {
+            result = prop.voters_unsealedVotes[_voter]==VoteOption.False ? 2*q-q*q : 1-q*q;
+        }
+        return result;
+    }
 
     function random() internal pure returns (uint8) 
     {
@@ -239,17 +258,14 @@ contract Oracle /*is usingOraclize*/ {
     /*
     uint256 constant MAX_INT_FROM_BYTE = 256;
     uint256 constant NUM_RANDOM_BYTES_REQUESTED = 7;
-
     event LogNewProvableQuery(string description);
     event generatedRandomNumber(uint256 randomNumber);
-
     constructor()
         public
     {
         oraclize_setProof(proofType_Ledger);
         update();
     }
-
     function __callback(
         bytes32 _queryId,
         string memory _result,
@@ -267,7 +283,6 @@ contract Oracle /*is usingOraclize*/ {
             emit generatedRandomNumber(randomNumber);
         }
     }
-
     function update()
         payable
         public
