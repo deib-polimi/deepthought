@@ -9,6 +9,8 @@ pragma solidity >=0.8.0 <0.9.0;
 contract Oracle /*is usingOraclize*/ {
     
     enum VoteOption {Unknown, True, False}
+
+    enum PropositionStatus {Open, VotingClose, RevealingClose}
     
     uint max_voters;
     
@@ -39,13 +41,18 @@ contract Oracle /*is usingOraclize*/ {
         
         // Total certifing value for each option
         mapping (bool => uint) certificates;
+
+        PropositionStatus status;
         
         uint256 num_voters;
         
         mapping (address => mapping (bool => uint256)) certifier_stakes;
         
-        mapping(address => mapping (VoteOption => uint256)) voters_stakes;
+        mapping(address => uint256) voters_stakes;
+
+        mapping(address => bytes32) voters_sealedVotes;
         
+        mapping(address => VoteOption) voters_unsealedVotes;
     }
     
     mapping (address => uint) balances;
@@ -79,6 +86,7 @@ contract Oracle /*is usingOraclize*/ {
         p.decision = VoteOption.Unknown;
         p.stakes_total = 0;
         p.num_voters = 0;
+        p.status = PropositionStatus.Open;
     }
     
     function certification_request(uint _stake) public {
@@ -112,30 +120,67 @@ contract Oracle /*is usingOraclize*/ {
         require (_stake >= get_min_voting_stake(reputations[msg.sender]), "The stake is not enough for your reputation");
         require (balances[msg.sender] >= _stake, "Not enough money to vote");
         uint256 prop_id = get_proposition();
-        Proposition storage prop = propositions[prop_id];
         voting_stakes[msg.sender][prop_id] = _stake;
         balances[msg.sender] -= _stake;
         return prop_id;
     }
     
-    function vote(uint256 _prop_id, VoteOption _vote) public {
+    function vote(uint256 _prop_id, bytes32 _hashedVote) public {
         require (voting_stakes[msg.sender][_prop_id] > 0, "Not a voter of that proposition! Make a request");
-        uint stake = voting_stakes[msg.sender][_prop_id];
-        uint vote = normalize_vote_weight(stake, reputations[msg.sender]);
+        //uint stake = voting_stakes[msg.sender][_prop_id];
+        //uint vote = normalize_vote_weight(stake, reputations[msg.sender]);
         voting_stakes[msg.sender][_prop_id] = 0;
         Proposition storage prop = propositions[_prop_id];
-        prop.votes[_vote] += vote;
+        require(prop.status == PropositionStatus.Open);
+        prop.voters_sealedVotes[msg.sender] = _hashedVote;
+        prop.voters_unsealedVotes[msg.sender] = VoteOption.Unknown;
         //prop.vote_stakes_total += stake; //TODO
         if (prop.num_voters >= max_voters){
             close_proposition(_prop_id);
         }
     }
+
+    function result_proposition(uint256 _prop_id) public {
+        Proposition storage prop = propositions[_prop_id];
+        require(prop.status == PropositionStatus.RevealingClose);
+        // calcola il totale dei voti
+        // controllo risultato
+        // dai i premi
+    }
+
+    function reveal_sealed_vote(
+        uint256 _prop_id,
+        bytes32 _salt
+    )
+        public
+    {
+        Proposition storage prop = propositions[_prop_id];
+        require(prop.status == PropositionStatus.VotingClose);
+        bytes32 hashedVote = prop.voters_sealedVotes[msg.sender];
+        if(hashedVote == keccak256(abi.encodePacked(_prop_id, VoteOption.True, _salt))){
+            // Vote was true
+            prop.voters_unsealedVotes[msg.sender] = VoteOption.True;
+        }else{
+            // Vote was false
+            prop.voters_unsealedVotes[msg.sender] = VoteOption.True;
+        }
+    }
+
+
     
     /**
     *Internal Functions*
     **/
-    function close_proposition(uint _prop_id) internal {
-        
+    function close_proposition(uint256 _prop_id) internal {
+        Proposition storage prop = propositions[_prop_id];
+        require(prop.status == PropositionStatus.Open);
+        prop.status = PropositionStatus.VotingClose;
+    }
+
+    function stop_revealing_proposition(uint256 _prop_id) internal {
+        Proposition storage prop = propositions[_prop_id];
+        require(prop.status == PropositionStatus.VotingClose);
+        prop.status = PropositionStatus.RevealingClose;
     }
     
     function get_min_voting_stake(uint _rep) internal pure returns (uint) {
