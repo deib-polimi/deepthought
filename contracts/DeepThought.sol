@@ -19,6 +19,10 @@ contract Oracle /*is usingOraclize*/ {
     uint reward_pool;
     
     uint max_reputation;
+
+    uint128 alfa;
+
+    uint128 beta;
     
     struct Proposition {
         // Unique proposition ID
@@ -182,6 +186,7 @@ contract Oracle /*is usingOraclize*/ {
         require(prop.status == PropositionStatus.VotingClose);
         prop.status = PropositionStatus.RevealingClose;
     }
+
     
     function get_min_voting_stake(uint _rep) internal pure returns (uint) {
         return _rep*10;
@@ -193,9 +198,12 @@ contract Oracle /*is usingOraclize*/ {
         //TODO something better
     }
     
-    function normalize_vote_weight(uint _stake, uint reputation) internal pure returns(uint) {
-        return _stake*reputation/8;
-        //TODO something better
+    function normalize_vote_weight(uint _stake, uint _reputation) internal view returns(uint) {
+        return alfa * sqrt(_stake) + (1 - alfa) * (_stake + _reputation);
+    }
+
+    function get_voter_reward(uint _stake, uint _reputation) internal view returns(uint) {
+        return beta * (_stake * _stake) + (1 - beta) * (_stake + _reputation);
     }
     
     function get_proposition() internal view returns(uint256) {
@@ -210,10 +218,19 @@ contract Oracle /*is usingOraclize*/ {
         return stake;
     }
 
-    function random() private view returns (uint8) 
+    function random() internal pure returns (uint8) 
     {
         // real solution is to ask Oraclize but it costs $$$
         return uint8(uint256(keccak256(abi.encodePacked(block.difficulty)))%251);
+    }
+
+    function sqrt(uint x) internal pure returns (uint y) {
+        uint z = (x + 1) / 2;
+        y = x;
+        while (z < y) {
+            y = z;
+            z = (x / z + z) / 2;
+        }
     }
 
     /*
