@@ -24,3 +24,8 @@ contract = web3.eth.contract(address=deployed_contract_address, abi=contract_abi
 message = contract.functions.sayHello().call()
 
 print(message)
+
+# To crate a sealed vote circa ????
+#prop_id = "0"
+#salt = "42"
+#hashedVote = Web3.solidityKeccak(['bytes32'], prop_id + "VoteOption.True" + salt)
