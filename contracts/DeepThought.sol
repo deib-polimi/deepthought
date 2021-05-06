@@ -132,6 +132,11 @@ contract Oracle /*is usingOraclize*/ {
         balances[msg.sender] = msg.sender.balance/1000;
     }
 
+    // ### THE WORKFLOW SHOULD BE:
+    // SUBMITTER: subscribe > submit_proposition > [wait for all to vote] > [wait for revealing or eventually result_proposition]
+    // VOTER: subscribe > voting_request > vote > [wait for all to vote] > reveal_sealed_vote > [get the rewards when propositon is closed]
+    // CERTIFIER: subscribe > certification_request > show_propositions > certify_proposition > [get the rewards when propositon is closed]
+
     //TODO: Functions to put more money into the balances or retrive it all
 
     //TODO: All the necessary checks at the beginning of the functions
@@ -153,6 +158,7 @@ contract Oracle /*is usingOraclize*/ {
         p.num_voters = 0;
         p.status = PropositionStatus.Open;
         p.submitter = msg.sender;
+        //TODO: initialize missing variables
     }
     
     // Put your stake to be able to view the propositions as a certifier
