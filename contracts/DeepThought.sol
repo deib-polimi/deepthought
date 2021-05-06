@@ -1,4 +1,5 @@
 pragma solidity >=0.8.0 <0.9.0;
+// SPDX-License-Identifier: UNLICENSED
 
 //import "github.com/provable-things/ethereum-api/blob/master/oraclizeAPI_0.5.sol";
 
@@ -8,21 +9,54 @@ pragma solidity >=0.8.0 <0.9.0;
  */
 contract Oracle /*is usingOraclize*/ {
     
+    // ### PARAMETERS OF THE ORACLE
+    
+    // Number of votes required to close a proposition
+    uint max_voters;
+    
+    // Minimum value of the bounty
+    uint min_bounty;
+    
+    // Pool of money of Unknown propositions
+    uint reward_pool;
+    
+    // Maximum reputation value for a voter
+    uint max_reputation;
+
+    // Parameter for vote weight calculation
+    uint128 alfa;
+
+    // Parameter for reward calculation
+    uint128 beta;
+
+    // ### GLOBAL VARIABLES
+    
+    // Number of propositions (used to iterate the list)
+    uint num_propositions;
+
+    // List of all the prop_id
+    uint256[] proposition_list;
+
+    // Map of all the prop_id > propositions
+    mapping (uint256 => Proposition) propositions;
+
+    // Balances of each address
+    mapping (address => uint) balances;
+
+    // Reputation of each address
+    mapping (address => uint) reputations;
+
+    // Voter > prop_id > stake to check if he staked something so he can see which proposition he was assign to  
+    mapping (address => mapping(uint256 => uint)) voting_stakes;
+    
+    // Certifier > stake to check if he staked something so he can see the proposition list
+    mapping (address => uint) certifing_stakes;
+
+    // ### STRUCTURES
+
     enum VoteOption {Unknown, True, False}
 
     enum PropositionStatus {Open, VotingClose, RevealingClose}
-    
-    uint max_voters;
-    
-    uint min_bounty;
-    
-    uint reward_pool;
-    
-    uint max_reputation;
-
-    uint128 alfa;
-
-    uint128 beta;
     
     struct Proposition {
         // Unique proposition ID
@@ -34,53 +68,61 @@ contract Oracle /*is usingOraclize*/ {
         // Bounty attached to proposition (max stake is half bounty)
         uint bounty;
         
-        // Decided outcome
-        VoteOption decision;
-
         // between 0 to 100
         uint prediction;
+        
+        // Total voting stake
+        uint stakes_total;
+
+        // The status of the proposition Open > votingClosed > RevealClosed
+        PropositionStatus status;
+
+        // Decided outcome
+        VoteOption decision;
 
         // Total voting value for each option
         mapping (VoteOption => uint) votes;
         
-        // Total voting stake
-        uint stakes_total;
-        
         // Total certifing value for each option
-        mapping (bool => uint) certificates;
+        mapping (VoteOption => uint) certificates;
 
-        PropositionStatus status;
+        // Number of people who certified (used to iterate map)
+        uint256 num_certifiers;
+
+        // List of the addresses who certified
+        address[]certifiers_list;
         
+        // Certifiers vote and stake (no need to divide it in multiple maps like for the voters since the vote is not sealed)
+        mapping (address => mapping (VoteOption => uint256)) certifier_stakes;
+        
+        // Current number of people who voted
         uint256 num_voters;
+
+        // List of the addresses who voted
+        address[] voters_list;
         
-        // voters certainty for the outcome
+        // Voters certainty for the outcome
         mapping(address => uint) prediction_cert;
         
-        mapping (address => mapping (bool => uint256)) certifier_stakes;
-        
+        // Voters stake
         mapping(address => uint256) voters_stakes;
 
+        // Voters sealed vote
         mapping(address => bytes32) voters_sealedVotes;
-        
+
+        // Voters unsealed vote
         mapping(address => VoteOption) voters_unsealedVotes;
     }
     
-    mapping (address => uint) balances;
-    
-    mapping (uint256 => Proposition) propositions;
-
-    uint numPropositions;
-    
-    uint256[] proposition_list;
-    
-    mapping (address => uint) reputations;
-
-    // Stake of a voter for a proposition    
-    mapping (address => mapping(uint256 => uint)) voting_stakes;
-    
-    mapping (address => uint) certifing_stakes;
-    
-    constructor(){}
+    constructor(){
+        // Initialize the parameters of the oracle
+        max_voters = 1;
+        min_bounty = 0;
+        reward_pool = 0;
+        max_reputation = 100;
+        alfa = 70; // %
+        beta = 30; // %
+    }
     
     function subscribe() public{
         balances[msg.sender] = msg.sender.balance/1000;
@@ -89,7 +131,7 @@ contract Oracle /*is usingOraclize*/ {
     function submit_proposition(uint256 _prop_id, bytes32 _prop_content, uint256 _bounty) public {
         require (_bounty > min_bounty, "Bounty is too low, check the minimum bounty");
         require (balances[msg.sender] >= _bounty, "Not enough money to submit");
-        Proposition storage p = propositions[numPropositions++];
+        Proposition storage p = propositions[num_propositions++];
         p.id =_prop_id;
         p.content = _prop_content;
         p.bounty = _bounty;
@@ -121,7 +163,7 @@ contract Oracle /*is usingOraclize*/ {
         // increment the vote and the relative pool
         uint stake = certifing_stakes[msg.sender];
         certifing_stakes[msg.sender] = 0;
-        prop.certificates[_vote] += 1;
+        prop.certificates[_vote? VoteOption.True : VoteOption.False] += 1;
         //TODO
         //_vote ? prop.true_pool += stake : prop.false_pool += stake;
     }
@@ -213,14 +255,14 @@ contract Oracle /*is usingOraclize*/ {
     }
     
     function get_proposition() internal view returns(uint256) {
-        require(numPropositions > 0, "No propositions available");
+        require(num_propositions > 0, "No propositions available");
         return proposition_list[0];
         //TODO make it a real random
     }
     
     function get_certifier_reward(uint256 _prop_id, address _certifier, bool _outcome) internal view returns(uint256){
         Proposition storage proposition = propositions[_prop_id];
-        uint256 stake = proposition.certifier_stakes[_certifier][_outcome];
+        uint256 stake = proposition.certifier_stakes[_certifier][_outcome? VoteOption.True : VoteOption.False];
         return stake;
     }
     
@@ -240,7 +282,7 @@ contract Oracle /*is usingOraclize*/ {
         return result;
     }
 
-    function random() internal pure returns (uint8) 
+    function random() internal view returns (uint8) 
     {
         // real solution is to ask Oraclize but it costs $$$
         return uint8(uint256(keccak256(abi.encodePacked(block.difficulty)))%251);
