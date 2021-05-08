@@ -345,11 +345,11 @@ contract Oracle /*is usingOraclize*/ {
         uint q = prop.prediction_cert[_voter];
         if(_outcome)
         {
-            result = prop.voters_unsealedVotes[_voter]==VoteOption.True ? 2*q-q*q : 1-q*q;
+            result = prop.voters_unsealedVotes[_voter]==VoteOption.True ? 200*q-q*q : 10000-q*q;
         }
         else
         {
-            result = prop.voters_unsealedVotes[_voter]==VoteOption.False ? 2*q-q*q : 1-q*q;
+            result = prop.voters_unsealedVotes[_voter]==VoteOption.False ? 200*q-q*q : 10000-q*q;
         }
         return result;
     }
