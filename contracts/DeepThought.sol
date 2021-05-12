@@ -6,7 +6,7 @@ pragma solidity >=0.8.0 <0.9.0;
  * @title Oracle
  * @dev 
  */
-contract DeepThought {
+contract Oracle /*is usingOraclize*/ {
     
     // ### PARAMETERS OF THE ORACLE
     
@@ -203,6 +203,8 @@ contract DeepThought {
     
     // A certifier send his vote for a proposition
     function certify_proposition(uint256 _prop_id, bool _vote) public {
+        require (_stake >= get_min_certifing_stake(msg.sender), "The stake is not enough for your reputation");
+        require (_stake <= get_max_certifing_stake(), "The stake is too high");
         require (ask_to_certify_stakes[msg.sender] > 0, "Not a certifier! Make a request");
         // Get the chosen proposition
         Proposition storage prop = propositions[_prop_id];
@@ -219,7 +221,7 @@ contract DeepThought {
     // Put your stake to receive a random proposition
     function voting_request(uint _stake) public returns (uint256) {
         require (_stake >= get_min_voting_stake(msg.sender), "The stake is not enough for your reputation");
-        require (_stake <= get_max_voting_stake(msg.sender), "The stake is not enough for your reputation");
+        require (_stake <= get_max_voting_stake(), "The stake is too high");
         require (balances[msg.sender] >= _stake, "Not enough money to vote");
         uint256 prop_id = get_proposition();
         ask_to_vote_stakes[msg.sender][prop_id] = _stake;
@@ -333,7 +335,7 @@ contract DeepThought {
         uint256 stake = p.certifier_stakes[_certifier][_vote ? VoteOption.True : VoteOption.False];
         uint reputation = reputations[_certifier];
         return alfa * sqrt(stake) + (100 - alfa) * (stake + reputation);
-        //TODO: IT IS USEFUL?! 
+        //TODO: IS IT USEFUL?! 
     }
 
     // Calculate the reward of a voter for a proposition
