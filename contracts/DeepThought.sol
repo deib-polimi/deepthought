@@ -142,7 +142,7 @@ contract Oracle /*is usingOraclize*/ {
         max_reputation = 100;
         
         // the minimum bounty is 100 times the max bid of certification (with max_rep = 100 is about 10**13 wei ~ 50$)
-        min_bounty = get_max_certifing_stake(max_reputation)*100;
+        min_bounty = get_max_certifing_stake()*100;
         
         reward_pool = 0;
         
@@ -189,22 +189,19 @@ contract Oracle /*is usingOraclize*/ {
     function certification_request(uint _stake) public {
         require (ask_to_certify_stakes[msg.sender] > 0, "Action already performed! Choose a proposition");
         require (balances[msg.sender] >= _stake, "Not enough money to certify");
-        require (_stake >= get_min_certifing_stake(msg.sender));
-        require (_stake <= get_max_certifing_stake(msg.sender));
+        require (_stake >= get_min_certifing_stake(msg.sender), "The stake is not enough for your reputation");
+        require (_stake <= get_max_certifing_stake(), "The stake is too high");
         ask_to_certify_stakes[msg.sender] = _stake;
         balances[msg.sender] -= _stake;
     }
     
     // A certifier who staked can see all the propositions
-    function show_propositions() public {
+    /*function show_propositions() public returns (){
         require (ask_to_certify_stakes[msg.sender] > 0, "Not a certifier! Make a request");
-        //TODO: return the list of all the propositions
-    }
+    }*/
     
     // A certifier send his vote for a proposition
     function certify_proposition(uint256 _prop_id, bool _vote) public {
-        require (_stake >= get_min_certifing_stake(msg.sender), "The stake is not enough for your reputation");
-        require (_stake <= get_max_certifing_stake(), "The stake is too high");
         require (ask_to_certify_stakes[msg.sender] > 0, "Not a certifier! Make a request");
         // Get the chosen proposition
         Proposition storage prop = propositions[_prop_id];
@@ -273,7 +270,7 @@ contract Oracle /*is usingOraclize*/ {
             prop.voters_unsealedVotes[msg.sender] = VoteOption.True;
         }else{
             // Vote was false
-            prop.voters_unsealedVotes[msg.sender] = VoteOption.True;
+            prop.voters_unsealedVotes[msg.sender] = VoteOption.False;
         }
         //TODO: create the num_revealed_votes in the proposition structure,
         // if this number is equal to the voters close the revealing phase automatically
@@ -301,7 +298,7 @@ contract Oracle /*is usingOraclize*/ {
     }
 
     // Calculate the maximum stake for a voter
-    function get_max_voting_stake() internal pure returns (uint) {
+    function get_max_voting_stake() internal view returns (uint) {
         return stake_function(max_reputation);
     }
     
@@ -311,13 +308,13 @@ contract Oracle /*is usingOraclize*/ {
     }
     
     // Calculate the maximum stake for a certifier
-    function get_max_certifing_stake(address _certifier) internal view returns (uint) {
+    function get_max_certifing_stake() internal view returns (uint) {
         return stake_function(max_reputation * 10);
     }
     
     // Function used to calculate all the stake boundaries
     // It represents a parabola with V=(1,1)
-    function stake_function(uint _rep) internal pure retuns (uint){
+    function stake_function(uint _rep) internal pure returns (uint){
         return 100 * (_rep ** 2 - 2 * (_rep - 1));
     }
     
@@ -341,7 +338,7 @@ contract Oracle /*is usingOraclize*/ {
     // Calculate the reward of a voter for a proposition
     function get_voter_reward(address _voter, uint256 prop_id) internal view returns(uint) {
         Proposition storage p = propositions[prop_id];
-        uint predictionCert = p.prediction_cert[_voter];
+        //uint predictionCert = p.prediction_cert[_voter];
         uint256 stake = p.voters_stakes[_voter];
         uint reputation = reputations[_voter];
         return beta * (stake ** 2) + (100 - beta) * (stake + reputation);
@@ -363,10 +360,11 @@ contract Oracle /*is usingOraclize*/ {
     }
     
     // Generate the scoreboard for a proposition
-    function assign_score(uint _prop_id, address _voter, bool _outcome) internal returns(uint){
+    function assign_score(uint _prop_id, address _voter, bool _outcome) internal view returns(uint){
         Proposition storage prop = propositions[_prop_id];
         require(prop.status == PropositionStatus.VotingClose);
-        uint result;
+        uint pred_score;
+        uint info_score;
         uint q = prop.prediction_cert[_voter];
         if(_outcome)
         {
@@ -376,8 +374,8 @@ contract Oracle /*is usingOraclize*/ {
         {
             pred_score = prop.voters_unsealedVotes[_voter]==VoteOption.False ? 200 * q - q ** 2 : 10000 - q ** 2;
         }
-        info_score = 10000 - (prediction_mean(_voter) - prediction_cert[_voter]) ** 2;
-        return presc_score + info_score;
+        info_score = 10000 - (prediction_mean(_voter, prop) - prop.prediction_cert[_voter]) ** 2;
+        return pred_score + info_score;
     }
 
     // Generate a pseudo-random number from 0 to _max
@@ -407,8 +405,9 @@ contract Oracle /*is usingOraclize*/ {
         // Initial guess: 1.0
         uint xNew = one;
         uint iter = 0;
+        uint x = 0;
         while (xNew != x && iter < _maxIts) {
-            uint x = xNew;
+            x = xNew;
             uint t0 = x ** (_n - 1);
             if (x * t0 > a0) {
                 xNew = x - (x - a0 / t0) / _n;
@@ -421,39 +420,40 @@ contract Oracle /*is usingOraclize*/ {
         return (xNew + 5) / 10;
     }
     
-    // produce the geometric mean without the predicion of the voter itself
-    function prediction_mean(address _voter) internal returns(uint){
-        uint8 storage i;
-        uint storage tot = 1;
-        uint storage num;
-        if(voters_unsealedVotes[_voter]){
+    // Produce the geometric mean without the predicion of the voter itself
+    function prediction_mean(address _voter, Proposition storage _prop) internal view returns(uint){
+        uint8 i;
+        uint tot = 1;
+        uint num;
+        if(_prop.voters_unsealedVotes[_voter] == VoteOption.True){
             //TODO: check vote
-            num = T_voters.length;
+            num = _prop.T_voters.length;
             for(i = 0; i < num; i ++){
-                tot *= prediction_cert[T_voters[i]];
+                tot *= _prop.prediction_cert[_prop.T_voters[i]];
             }
         }else{
-            num = F_voters.legth;
+            num = _prop.F_voters.length;
             for(i = 0; i < num; i ++){
-               tot *= prediction_cert[F_voters[i]];
+               tot *= _prop.prediction_cert[_prop.F_voters[i]];
             }
         }
-        tot /= prediction_cert[_voter];
-        return nthRoot(tot, n, 0, 1000);
-        
+        tot /= _prop.prediction_cert[_voter];
+        return nthRoot(tot, num, 0, 1000);
     }
     
+    // Increment the reputation of a voter
     function increment_reputation(address _voter) internal {
-        uint storage rep = reputations[address];
+        uint rep = reputations[_voter];
         if (rep < max_reputation) {
-            reputations[address] += 1;
+            reputations[_voter] += 1;
         }
     }
-    
+
+    // Decrement the reputation of a voter
     function decrement_reputation(address _voter) internal {
-        uint storage rep = reputations[address];
+        uint rep = reputations[_voter];
         if (rep > 1) {
-            reputations[address] -= 1;
+            reputations[_voter] -= 1;
         }
     }
 
