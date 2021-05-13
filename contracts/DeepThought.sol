@@ -177,8 +177,8 @@ contract Oracle /*is usingOraclize*/ {
         balances[msg.sender] = msg.sender.balance/(10 ** 6);
     }
 
-    function get_balance(address _addr) public view returns(uint){
-        return balances[_addr];
+    function get_balance() public view returns(uint){
+        return balances[msg.sender];
     }
 
     // ### THE WORKFLOW SHOULD BE:
