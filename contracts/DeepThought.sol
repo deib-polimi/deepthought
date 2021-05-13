@@ -164,6 +164,7 @@ contract Oracle /*is usingOraclize*/ {
         alfa = 70; // %
         
         beta = 30; // %
+
     }
     
     // Subscribe to the service and put founds in it
@@ -176,28 +177,24 @@ contract Oracle /*is usingOraclize*/ {
     // VOTER: subscribe > voting_request > vote > [wait for all to vote] > reveal_sealed_vote > [get the rewards when propositon is closed]
     // CERTIFIER: subscribe > certification_request > show_propositions > certify_proposition > [get the rewards when propositon is closed]
 
-    //TODO: Functions to put more money into the balances or retrive it all
-
     //TODO: All the necessary checks at the beginning of the functions
 
     //TODO: Functions to retrive the data with python, if necessary (maybe it shouldn't since they are public and free on the chain)
     
     // Submit a new proposition
-    function submit_proposition(uint256 _prop_id, bytes32 _prop_content, uint256 _bounty) public {
+    function submit_proposition(uint256 _prop_id, bytes32 _prop_content, uint256 _bounty, uint128 _prediction) public {
         require (_bounty > min_bounty, "Bounty is too low, check the minimum bounty");
         require (balances[msg.sender] >= _bounty, "Not enough money to submit");
         num_propositions += 1;
         proposition_list.push(num_propositions);
         Proposition storage p = propositions[num_propositions];
         p.id =_prop_id;
+        p.submitter = msg.sender;
         p.content = _prop_content;
         p.bounty = _bounty;
-        p.decision = VoteOption.Unknown;
-        p.stakes_total = 0;
-        p.num_voters = 0;
+        p.prediction = _prediction;
         p.status = PropositionStatus.Open;
-        p.submitter = msg.sender;
-        //TODO: initialize missing variables
+        p.decision = VoteOption.Unknown;
     }
     
     // Put your stake to be able to view the propositions as a certifier
