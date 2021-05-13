@@ -177,12 +177,14 @@ contract Oracle /*is usingOraclize*/ {
         balances[msg.sender] = msg.sender.balance/(10 ** 6);
     }
 
+    function get_balance(address _addr) public view returns(uint){
+        return balances[_addr];
+    }
+
     // ### THE WORKFLOW SHOULD BE:
     // SUBMITTER: subscribe > submit_proposition > [wait for all to vote] > [wait for revealing or eventually result_proposition]
     // VOTER: subscribe > voting_request > vote > [wait for all to vote] > reveal_sealed_vote > [get the rewards when propositon is closed]
     // CERTIFIER: subscribe > certification_request > show_propositions > certify_proposition > [get the rewards when propositon is closed]
-
-    //TODO: All the necessary checks at the beginning of the functions
 
     //TODO: Functions to retrive the data with python, if necessary (maybe it shouldn't since they are public and free on the chain)
     
@@ -213,9 +215,16 @@ contract Oracle /*is usingOraclize*/ {
     }
     
     // A certifier who staked can see all the propositions
-    /*function show_propositions() public returns (){
+    function get_max_number_of_propositions() public view returns (uint256){
         require (ask_to_certify_stakes[msg.sender] > 0, "Not a certifier! Make a request");
-    }*/
+        return proposition_list.length;
+    }
+    function show_propositions(uint _i) public view returns (bytes32){
+        require (ask_to_certify_stakes[msg.sender] > 0, "Not a certifier! Make a request");
+        require (_i < proposition_list.length, "Out of bound");
+        uint256 prop_id = proposition_list[_i];
+        return propositions[prop_id].content;
+    }
     
     // A certifier send his vote for a proposition
     function certify_proposition(uint256 _prop_id, bool _vote) public {
@@ -295,7 +304,7 @@ contract Oracle /*is usingOraclize*/ {
             prop.num_T_voters++;
             prop.T_voters.push(msg.sender);
             prop.votes[VoteOption.True] += normalize_voter_vote_weight(msg.sender, _prop_id);
-        }else{
+        }else if(hashedVote == keccak256(abi.encodePacked(_prop_id, VoteOption.False, _salt))){
             // Vote was false
             prop.voters_unsealedVotes[msg.sender] = VoteOption.False;
             prop.num_F_voters++;
@@ -349,20 +358,16 @@ contract Oracle /*is usingOraclize*/ {
     function distribute_rewards(uint256 _prop_id) internal {
         Proposition storage prop = propositions[_prop_id];
         require(prop.status == PropositionStatus.RevealingClose);
-        
         uint reward_pool = prop.stakes_total + prop.bounty;
-
         for(uint i = 0; i < prop.num_certifiers; i++){
             address addr = prop.certifiers_list[i];
             uint cert_reward = get_certifier_reward(addr, _prop_id);
-
             if(prop.certifier_stakes[addr][prop.decision] > 0){
                 balances[addr] += cert_reward;
                 reward_pool -= cert_reward - lost_reward_pool/lost_reward_pool_split;
                 lost_reward_pool -= lost_reward_pool/lost_reward_pool_split;
             }
         }
-
         for(uint i = 0; i < prop.num_scoreboard; i++){
             address addr = prop.scoreboard[i];
             uint voter_reward = get_voter_reward(addr, _prop_id);
@@ -371,7 +376,6 @@ contract Oracle /*is usingOraclize*/ {
                 reward_pool -= voter_reward;
             }
         }
-
         lost_reward_pool += reward_pool;
     } 
 
