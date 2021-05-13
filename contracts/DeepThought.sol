@@ -258,6 +258,7 @@ contract Oracle /*is usingOraclize*/ {
         //TODO: check the result of the proposition using prop.votes and prop.certificates maps and populate the prop.decision variable
         //TODO: calculate the scoreboard (assign_score function to be used)
         //TODO: distribute the rewards iterating the scoreboard (get_voter_reward and get_certifier_reward to be used)
+        distribute_reputation(_prop_id);
     }
 
     // Reveal the vote for a proposition
@@ -291,6 +292,28 @@ contract Oracle /*is usingOraclize*/ {
         require(prop.status == PropositionStatus.VotingClose);
         prop.status = PropositionStatus.RevealingClose;
     }
+
+    // Distribute the reputation to all the voters
+    function distribute_reputation(uint256 _prop_id) internal {
+        Proposition storage prop = propositions[_prop_id];
+        require(prop.status == PropositionStatus.RevealingClose);
+        for(uint i = 0; i < prop.num_voters; i++){
+            address voter_addr = prop.voters_list[i];
+            if(prop.voters_unsealedVotes[voter_addr] == prop.decision){
+                increment_reputation(voter_addr);
+            }else{
+                decrement_reputation(voter_addr);
+            }
+        }
+        for(uint j = 0; j < prop.num_certifiers; j++){
+            address cert_addr = prop.certifiers_list[j];
+            if(prop.certifier_stakes[cert_addr][prop.decision] > 0){
+                increment_reputation(cert_addr);
+            }else{
+                decrement_reputation(cert_addr);
+            }
+        }
+    }    
 
     // Calculate the minimum stake for a voter
     function get_min_voting_stake(address _voter) internal view returns (uint) {
