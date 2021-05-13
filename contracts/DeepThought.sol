@@ -17,7 +17,10 @@ contract Oracle /*is usingOraclize*/ {
     uint min_bounty;
     
     // Pool of money of Unknown propositions
-    uint reward_pool;
+    uint lost_reward_pool;
+
+    //
+    uint lost_reward_pool_split;
     
     // Maximum reputation value for a voter
     uint max_reputation;
@@ -156,10 +159,12 @@ contract Oracle /*is usingOraclize*/ {
         // the max reputation reachable for voters
         max_reputation = 100;
         
-        // the minimum bounty is 100 times the max bid of certification (with max_rep = 100 is about 10**13 wei ~ 50$)
-        min_bounty = get_max_certifing_stake()*100;
+        // the minimum bounty is 100 times the max bid of certification (with max_rep = 100 is about 10**16 wei ~ 50$)
+        min_bounty = get_max_certifing_stake() * 100;
         
-        reward_pool = 0;
+        lost_reward_pool = 0;
+
+        lost_reward_pool_split = 100;
         
         alfa = 70; // %
         
@@ -169,7 +174,7 @@ contract Oracle /*is usingOraclize*/ {
     
     // Subscribe to the service and put founds in it
     function subscribe() public{
-        balances[msg.sender] = msg.sender.balance/1000;
+        balances[msg.sender] = msg.sender.balance/(10 ** 6);
     }
 
     // ### THE WORKFLOW SHOULD BE:
@@ -344,14 +349,30 @@ contract Oracle /*is usingOraclize*/ {
     function distribute_rewards(uint256 _prop_id) internal {
         Proposition storage prop = propositions[_prop_id];
         require(prop.status == PropositionStatus.RevealingClose);
-        for(uint i = 0; i < prop.num_scoreboard; i++){
-            address addr = prop.scoreboard[i];
-            if(prop.voters_stakes[addr] > 0){
-                balances[addr] = get_voter_reward(addr, _prop_id);
-            }else{
-                balances[addr] = get_certifier_reward(addr, _prop_id);
+        
+        uint reward_pool = prop.stakes_total + prop.bounty;
+
+        for(uint i = 0; i < prop.num_certifiers; i++){
+            address addr = prop.certifiers_list[i];
+            uint cert_reward = get_certifier_reward(addr, _prop_id);
+
+            if(prop.certifier_stakes[addr][prop.decision] > 0){
+                balances[addr] += cert_reward;
+                reward_pool -= cert_reward - lost_reward_pool/lost_reward_pool_split;
+                lost_reward_pool -= lost_reward_pool/lost_reward_pool_split;
             }
         }
+
+        for(uint i = 0; i < prop.num_scoreboard; i++){
+            address addr = prop.scoreboard[i];
+            uint voter_reward = get_voter_reward(addr, _prop_id);
+            if (reward_pool - voter_reward > 0){
+                balances[addr] += voter_reward;
+                reward_pool -= voter_reward;
+            }
+        }
+
+        lost_reward_pool += reward_pool;
     } 
 
     // Set the decision based on the vote majority
@@ -388,18 +409,6 @@ contract Oracle /*is usingOraclize*/ {
            prop.scoreboard.push(voter_addr);
            prop.scores[voter_addr] = assign_score(_prop_id, voter_addr);           
         }
-        for(uint k = 0; k < prop.num_T_certifiers; k++){
-           address cert_addr = prop.T_certifiers[k];
-           prop.num_scoreboard++;
-           prop.scoreboard.push(cert_addr);
-           prop.scores[cert_addr] = assign_score(_prop_id, cert_addr);
-        }
-        for(uint l = 0; l < prop.num_F_certifiers; l++){
-           address cert_addr = prop.F_certifiers[l];
-           prop.num_scoreboard++;
-           prop.scoreboard.push(cert_addr);
-           prop.scores[cert_addr] = assign_score(_prop_id, cert_addr);
-        }
         order_scoreboard(_prop_id);
     } 
 
@@ -423,12 +432,12 @@ contract Oracle /*is usingOraclize*/ {
     
     // Calculate the minimum stake for a certifier
     function get_min_certifing_stake(address _certifier) internal view returns (uint) {
-        return stake_function(reputations[_certifier]);
+        return stake_function(reputations[_certifier] + max_reputation);
     }
     
     // Calculate the maximum stake for a certifier
     function get_max_certifing_stake() internal view returns (uint) {
-        return stake_function(max_reputation * 10);
+        return stake_function(2 * max_reputation * 10);
     }
     
     // Function used to calculate all the stake boundaries
@@ -468,8 +477,7 @@ contract Oracle /*is usingOraclize*/ {
         Proposition storage p = propositions[_prop_id];
         uint256 stake = p.certifier_stakes[_certifier][p.decision];
         uint reputation = reputations[_certifier];
-        return beta * (stake ** 2) + (100 - beta) * (stake + reputation);
-        // TODO: something different for certifiers
+        return beta * (stake ** 2) + (100 - beta) * (stake + reputation + max_reputation) + lost_reward_pool/lost_reward_pool_split;
     }
     
     // Return a random propositon for a voter
