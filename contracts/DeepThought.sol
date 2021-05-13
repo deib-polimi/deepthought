@@ -174,7 +174,9 @@ contract Oracle /*is usingOraclize*/ {
     
     // Subscribe to the service and put founds in it
     function subscribe() public{
+        require(balances[msg.sender] == 0, "Already subscribed!!!!!! :C");
         balances[msg.sender] = msg.sender.balance/(10 ** 6);
+        reputations[msg.sender] = 1;
     }
 
     function get_balance() public view returns(uint){
@@ -206,7 +208,7 @@ contract Oracle /*is usingOraclize*/ {
     
     // Put your stake to be able to view the propositions as a certifier
     function certification_request(uint _stake) public {
-        require (ask_to_certify_stakes[msg.sender] > 0, "Action already performed! Choose a proposition");
+        require (ask_to_certify_stakes[msg.sender] == 0, "Action already performed! Choose a proposition");
         require (balances[msg.sender] >= _stake, "Not enough money to certify");
         require (_stake >= get_min_certifing_stake(msg.sender), "The stake is not enough for your reputation");
         require (_stake <= get_max_certifing_stake(), "The stake is too high");
