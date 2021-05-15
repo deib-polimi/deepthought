@@ -3,27 +3,27 @@ pragma solidity >=0.8.0 <0.9.0;
 
 
 /**
- * @title Oracle
+ * @title DeepThought
  * @dev 
  */
-contract Oracle /*is usingOraclize*/ {
+contract DeepThought /*is usingOraclize*/ {
     
     // ### PARAMETERS OF THE ORACLE
     
     // Number of votes required to close a proposition
-    uint max_voters;
+    uint256 max_voters;
     
     // Minimum value of the bounty
-    uint min_bounty;
+    uint256 min_bounty;
     
     // Pool of money of Unknown propositions
-    uint lost_reward_pool;
+    uint256 lost_reward_pool;
 
-    //
-    uint lost_reward_pool_split;
+    // Divider of lost_reward_pool being distributed to certifiers
+    uint256 lost_reward_pool_split;
     
     // Maximum reputation value for a voter
-    uint max_reputation;
+    uint256 max_reputation;
 
     // Parameter for vote weight calculation
     uint128 alfa;
@@ -34,7 +34,7 @@ contract Oracle /*is usingOraclize*/ {
     // ### GLOBAL VARIABLES
     
     // Number of propositions (used to iterate the list)
-    uint num_propositions;
+    uint256 num_propositions;
 
     // List of all the prop_id
     uint256[] proposition_list;
@@ -43,10 +43,10 @@ contract Oracle /*is usingOraclize*/ {
     mapping (uint256 => Proposition) propositions;
 
     // Balances of each address
-    mapping (address => uint) balances;
+    mapping (address => uint256) balances;
 
     // Reputation of each address
-    mapping (address => uint) reputations;
+    mapping (address => uint256) reputations;
 
     // Voter > prop_id > stake to check if he staked something so he can see which proposition he was assign to  
     mapping (address => mapping(uint256 => uint256)) ask_to_vote_stakes;
@@ -71,13 +71,13 @@ contract Oracle /*is usingOraclize*/ {
         bytes32 content;
         
         // Bounty attached to proposition (max stake is half bounty)
-        uint bounty;
+        uint256 bounty;
         
         // between 0 to 100
-        uint prediction;
+        uint256 prediction;
         
         // Total voting stake
-        uint stakes_total;
+        uint256 stakes_total;
 
         // The status of the proposition Open > votingClosed > RevealClosed
         PropositionStatus status;
@@ -86,10 +86,10 @@ contract Oracle /*is usingOraclize*/ {
         VoteOption decision;
 
         // Total voting value for each option
-        mapping (VoteOption => uint) votes;
+        mapping (VoteOption => uint256) votes;
         
         // Total certifing value for each option
-        mapping (VoteOption => uint) certificates;
+        mapping (VoteOption => uint256) certificates;
 
         // Number of people who certified (used to iterate map)
         uint256 num_certifiers;
@@ -107,7 +107,7 @@ contract Oracle /*is usingOraclize*/ {
         address[] voters_list;
         
         // Voters certainty for the outcome
-        mapping(address => uint) prediction_cert;
+        mapping(address => uint256) prediction_cert;
         
         // Voters stake
         mapping(address => uint256) voters_stakes;
@@ -119,34 +119,34 @@ contract Oracle /*is usingOraclize*/ {
         mapping(address => VoteOption) voters_unsealedVotes;
         
         // Number of scores (to iterate scoreboard)
-        uint num_scoreboard;
+        uint256 num_scoreboard;
 
         // Scoreboard: importance order
         address[] scoreboard;
         
         // Score for each voter
-        mapping(address => uint) scores;
+        mapping(address => uint256) scores;
         
         // Number of true voters (to iterate following list)
-        uint num_T_voters;
+        uint256 num_T_voters;
 
         // Voters submitting vote T
         address[] T_voters;
 
         // Number of false voters (to iterate following list)
-        uint num_F_voters;
+        uint256 num_F_voters;
         
         // Voters submitting vote F
         address[] F_voters;
 
         // Number of true certifiers (to iterate following list)
-        uint num_T_certifiers;
+        uint256 num_T_certifiers;
         
         //Certifiers submitting cert T
         address[] T_certifiers;
         
         // Number of false certifiers (to iterate following list)
-        uint num_F_certifiers;
+        uint256 num_F_certifiers;
 
         //Certifiers submitting cert F
         address[] F_certifiers;
@@ -154,7 +154,7 @@ contract Oracle /*is usingOraclize*/ {
     
     constructor(){
         // Initialize the parameters of the oracle
-        max_voters = 1;
+        max_voters = 10;
         
         // the max reputation reachable for voters
         max_reputation = 100;
@@ -171,24 +171,31 @@ contract Oracle /*is usingOraclize*/ {
         beta = 30; // %
 
     }
-    
-    // Subscribe to the service and put founds in it
-    function subscribe() public{
-        require(balances[msg.sender] == 0, "Already subscribed!!!!!! :C");
-        balances[msg.sender] = msg.sender.balance/(10 ** 6);
-        reputations[msg.sender] = 1;
-    }
 
-    function get_balance() public view returns(uint){
+    // ### DEBUG FUNCTIONS
+
+    function get_balance() public view returns(uint256){
         return balances[msg.sender];
     }
+
+    function get_reputation() public view returns(uint256){
+        return reputations[msg.sender];
+    }
+
 
     // ### THE WORKFLOW SHOULD BE:
     // SUBMITTER: subscribe > submit_proposition > [wait for all to vote] > [wait for revealing or eventually result_proposition]
     // VOTER: subscribe > voting_request > vote > [wait for all to vote] > reveal_sealed_vote > [get the rewards when propositon is closed]
     // CERTIFIER: subscribe > certification_request > show_propositions > certify_proposition > [get the rewards when propositon is closed]
 
-    //TODO: Functions to retrive the data with python, if necessary (maybe it shouldn't since they are public and free on the chain)
+    // ### ORACLE FUNCTIONS
+
+    // Subscribe to the service and put founds in it
+    function subscribe() public{
+        require(balances[msg.sender] == 0, "Already subscribed!");
+        balances[msg.sender] = msg.sender.balance/(10 ** 6);
+        reputations[msg.sender] = 1;
+    }
     
     // Submit a new proposition
     function submit_proposition(uint256 _prop_id, bytes32 _prop_content, uint256 _bounty, uint128 _prediction) public {
@@ -204,10 +211,12 @@ contract Oracle /*is usingOraclize*/ {
         p.prediction = _prediction;
         p.status = PropositionStatus.Open;
         p.decision = VoteOption.Unknown;
+
+        balances[msg.sender] -= _bounty;
     }
     
     // Put your stake to be able to view the propositions as a certifier
-    function certification_request(uint _stake) public {
+    function certification_request(uint256 _stake) public {
         require (ask_to_certify_stakes[msg.sender] == 0, "Action already performed! Choose a proposition");
         require (balances[msg.sender] >= _stake, "Not enough money to certify");
         require (_stake >= get_min_certifing_stake(msg.sender), "The stake is not enough for your reputation");
@@ -221,7 +230,7 @@ contract Oracle /*is usingOraclize*/ {
         require (ask_to_certify_stakes[msg.sender] > 0, "Not a certifier! Make a request");
         return proposition_list.length;
     }
-    function show_propositions(uint _i) public view returns (bytes32){
+    function show_propositions(uint256 _i) public view returns (bytes32){
         require (ask_to_certify_stakes[msg.sender] > 0, "Not a certifier! Make a request");
         require (_i < proposition_list.length, "Out of bound");
         uint256 prop_id = proposition_list[_i];
@@ -251,7 +260,7 @@ contract Oracle /*is usingOraclize*/ {
     }
     
     // Put your stake to receive a random proposition
-    function voting_request(uint _stake) public returns (uint256) {
+    function voting_request(uint256 _stake) public returns (uint256) {
         require (_stake >= get_min_voting_stake(msg.sender), "The stake is not enough for your reputation");
         require (_stake <= get_max_voting_stake(), "The stake is too high");
         require (balances[msg.sender] >= _stake, "Not enough money to vote");
@@ -262,7 +271,7 @@ contract Oracle /*is usingOraclize*/ {
     }
     
     // Vote for the proposition you received
-    function vote(uint256 _prop_id, bytes32 _hashedVote, uint _predictionPercent) public {
+    function vote(uint256 _prop_id, bytes32 _hashedVote, uint256 _predictionPercent) public {
         require (ask_to_vote_stakes[msg.sender][_prop_id] > 0, "Not a voter of that proposition! Make a request");
         // Get the propositon
         Proposition storage prop = propositions[_prop_id];
@@ -338,7 +347,7 @@ contract Oracle /*is usingOraclize*/ {
     function distribute_reputation(uint256 _prop_id) internal {
         Proposition storage prop = propositions[_prop_id];
         require(prop.status == PropositionStatus.RevealingClose);
-        for(uint i = 0; i < prop.num_voters; i++){
+        for(uint256 i = 0; i < prop.num_voters; i++){
             address voter_addr = prop.voters_list[i];
             if(prop.voters_unsealedVotes[voter_addr] == prop.decision){
                 increment_reputation(voter_addr);
@@ -346,7 +355,7 @@ contract Oracle /*is usingOraclize*/ {
                 decrement_reputation(voter_addr);
             }
         }
-        for(uint j = 0; j < prop.num_certifiers; j++){
+        for(uint256 j = 0; j < prop.num_certifiers; j++){
             address cert_addr = prop.certifiers_list[j];
             if(prop.certifier_stakes[cert_addr][prop.decision] > 0){
                 increment_reputation(cert_addr);
@@ -360,19 +369,19 @@ contract Oracle /*is usingOraclize*/ {
     function distribute_rewards(uint256 _prop_id) internal {
         Proposition storage prop = propositions[_prop_id];
         require(prop.status == PropositionStatus.RevealingClose);
-        uint reward_pool = prop.stakes_total + prop.bounty;
-        for(uint i = 0; i < prop.num_certifiers; i++){
+        uint256 reward_pool = prop.stakes_total + prop.bounty;
+        for(uint256 i = 0; i < prop.num_certifiers; i++){
             address addr = prop.certifiers_list[i];
-            uint cert_reward = get_certifier_reward(addr, _prop_id);
+            uint256 cert_reward = get_certifier_reward(addr, _prop_id);
             if(prop.certifier_stakes[addr][prop.decision] > 0){
                 balances[addr] += cert_reward;
                 reward_pool -= cert_reward - lost_reward_pool/lost_reward_pool_split;
                 lost_reward_pool -= lost_reward_pool/lost_reward_pool_split;
             }
         }
-        for(uint i = 0; i < prop.num_scoreboard; i++){
+        for(uint256 i = 0; i < prop.num_scoreboard; i++){
             address addr = prop.scoreboard[i];
-            uint voter_reward = get_voter_reward(addr, _prop_id);
+            uint256 voter_reward = get_voter_reward(addr, _prop_id);
             if (reward_pool - voter_reward > 0){
                 balances[addr] += voter_reward;
                 reward_pool -= voter_reward;
@@ -403,13 +412,13 @@ contract Oracle /*is usingOraclize*/ {
         Proposition storage prop = propositions[_prop_id];
         require(prop.status == PropositionStatus.RevealingClose);  
         require(prop.decision == VoteOption.True || prop.decision == VoteOption.False || prop.decision == VoteOption.Unknown);
-        for(uint i = 0; i < prop.num_T_voters; i++){
+        for(uint256 i = 0; i < prop.num_T_voters; i++){
            address voter_addr = prop.T_voters[i];
            prop.num_scoreboard++;
            prop.scoreboard.push(voter_addr);
            prop.scores[voter_addr] = assign_score(_prop_id, voter_addr);
         }
-        for(uint j = 0; j < prop.num_F_voters; j++){
+        for(uint256 j = 0; j < prop.num_F_voters; j++){
            address voter_addr = prop.F_voters[j];
            prop.num_scoreboard++;
            prop.scoreboard.push(voter_addr);
@@ -427,62 +436,62 @@ contract Oracle /*is usingOraclize*/ {
     }   
 
     // Calculate the minimum stake for a voter
-    function get_min_voting_stake(address _voter) internal view returns (uint) {
+    function get_min_voting_stake(address _voter) internal view returns (uint256) {
         return stake_function(reputations[_voter]);
     }
 
     // Calculate the maximum stake for a voter
-    function get_max_voting_stake() internal view returns (uint) {
+    function get_max_voting_stake() internal view returns (uint256) {
         return stake_function(max_reputation);
     }
     
     // Calculate the minimum stake for a certifier
-    function get_min_certifing_stake(address _certifier) internal view returns (uint) {
+    function get_min_certifing_stake(address _certifier) internal view returns (uint256) {
         return stake_function(reputations[_certifier] + max_reputation);
     }
     
     // Calculate the maximum stake for a certifier
-    function get_max_certifing_stake() internal view returns (uint) {
+    function get_max_certifing_stake() internal view returns (uint256) {
         return stake_function(2 * max_reputation * 10);
     }
     
     // Function used to calculate all the stake boundaries
     // It represents a parabola with V=(1,1)
-    function stake_function(uint _rep) internal pure returns (uint){
+    function stake_function(uint256 _rep) internal pure returns (uint256){
         return 100 * (_rep ** 2 - 2 * (_rep - 1));
     }
     
     // Calculate the vote weight of a voter for a proposition
-    function normalize_voter_vote_weight(address _voter, uint256 prop_id) internal view returns(uint) {
+    function normalize_voter_vote_weight(address _voter, uint256 prop_id) internal view returns(uint256) {
         Proposition storage p = propositions[prop_id];
         uint256 stake = p.voters_stakes[_voter];
-        uint reputation = reputations[_voter];
+        uint256 reputation = reputations[_voter];
         return alfa * sqrt(stake) + (100 - alfa) * (stake + reputation);
     }
 
     // Calculate the vote weight of a certifier for a proposition
-    function normalize_certifier_vote_weight(address _certifier, uint256 prop_id, bool _vote) internal view returns(uint) {
+    function normalize_certifier_vote_weight(address _certifier, uint256 prop_id, bool _vote) internal view returns(uint256) {
         Proposition storage p = propositions[prop_id];
         uint256 stake = p.certifier_stakes[_certifier][_vote ? VoteOption.True : VoteOption.False];
-        uint reputation = reputations[_certifier];
+        uint256 reputation = reputations[_certifier];
         return alfa * sqrt(stake) + (100 - alfa) * (stake + reputation);
         //TODO: IS IT USEFUL?! 
     }
 
     // Calculate the reward of a voter for a proposition
-    function get_voter_reward(address _voter, uint256 prop_id) internal view returns(uint) {
+    function get_voter_reward(address _voter, uint256 prop_id) internal view returns(uint256) {
         Proposition storage p = propositions[prop_id];
-        //uint predictionCert = p.prediction_cert[_voter];
+        //uint256 predictionCert = p.prediction_cert[_voter];
         uint256 stake = p.voters_stakes[_voter];
-        uint reputation = reputations[_voter];
+        uint256 reputation = reputations[_voter];
         return beta * (stake ** 2) + (100 - beta) * (stake + reputation);
     }
 
     // Calculate the reward of a certifier for a proposition
-    function get_certifier_reward(address _certifier, uint256 _prop_id) internal view returns(uint){
+    function get_certifier_reward(address _certifier, uint256 _prop_id) internal view returns(uint256){
         Proposition storage p = propositions[_prop_id];
         uint256 stake = p.certifier_stakes[_certifier][p.decision];
-        uint reputation = reputations[_certifier];
+        uint256 reputation = reputations[_certifier];
         return beta * (stake ** 2) + (100 - beta) * (stake + reputation + max_reputation) + lost_reward_pool/lost_reward_pool_split;
     }
     
@@ -493,12 +502,12 @@ contract Oracle /*is usingOraclize*/ {
     }
     
     // Generate the scoreboard for a proposition
-    function assign_score(uint _prop_id, address _voter) internal view returns(uint){
+    function assign_score(uint256 _prop_id, address _voter) internal view returns(uint256){
         Proposition storage prop = propositions[_prop_id];
         require(prop.status == PropositionStatus.VotingClose);
-        uint pred_score;
-        uint info_score;
-        uint q = prop.prediction_cert[_voter];
+        uint256 pred_score;
+        uint256 info_score;
+        uint256 q = prop.prediction_cert[_voter];
         if(prop.decision == VoteOption.True)
         {
             pred_score = prop.voters_unsealedVotes[_voter]==VoteOption.True ? 200 * q - q ** 2 : 10000 - q ** 2;
@@ -512,10 +521,10 @@ contract Oracle /*is usingOraclize*/ {
     }
 
     // Produce the geometric mean without the predicion of the voter itself
-    function prediction_mean(address _voter, Proposition storage _prop) internal view returns(uint){
+    function prediction_mean(address _voter, Proposition storage _prop) internal view returns(uint256){
         uint8 i;
-        uint tot = 1;
-        uint num;
+        uint256 tot = 1;
+        uint256 num;
         if(_prop.voters_unsealedVotes[_voter] == VoteOption.True){
             //TODO: check vote
             num = _prop.T_voters.length;
@@ -534,7 +543,7 @@ contract Oracle /*is usingOraclize*/ {
     
     // Increment the reputation of a voter
     function increment_reputation(address _voter) internal {
-        uint rep = reputations[_voter];
+        uint256 rep = reputations[_voter];
         if (rep < max_reputation) {
             reputations[_voter] += 1;
         }
@@ -542,7 +551,7 @@ contract Oracle /*is usingOraclize*/ {
 
     // Decrement the reputation of a voter
     function decrement_reputation(address _voter) internal {
-        uint rep = reputations[_voter];
+        uint256 rep = reputations[_voter];
         if (rep > 1) {
             reputations[_voter] -= 1;
         }
@@ -551,14 +560,14 @@ contract Oracle /*is usingOraclize*/ {
     // ### UTILITY FUNCTIONS
 
     // Generate a pseudo-random number from 0 to _max
-    function random(uint _max) internal view returns (uint8) 
+    function random(uint256 _max) internal view returns (uint8) 
     {
         return uint8(uint256(keccak256(abi.encodePacked(block.difficulty, block.timestamp, block.coinbase))) % _max);
     }
 
     // Get the square root of a number
-    function sqrt(uint x) internal pure returns (uint y) {
-        uint z = (x + 1) / 2;
+    function sqrt(uint256 x) internal pure returns (uint256 y) {
+        uint256 z = (x + 1) / 2;
         y = x;
         while (z < y) {
             y = z;
@@ -567,20 +576,20 @@ contract Oracle /*is usingOraclize*/ {
     }
     
     // Get the n-root of a number
-    function nthRoot(uint _a, uint _n, uint _dp, uint _maxIts) pure public returns(uint) {
+    function nthRoot(uint256 _a, uint256 _n, uint256 _dp, uint256 _maxIts) pure public returns(uint256) {
         assert (_n > 1);
         // The scale factor is a crude way to turn everything into integer calcs.
         // Actually do (a * (10 ^ ((dp + 1) * n))) ^ (1/n)
         // We calculate to one extra dp and round at the end
-        uint one = 10 ** (1 + _dp);
-        uint a0 = one ** _n * _a;
+        uint256 one = 10 ** (1 + _dp);
+        uint256 a0 = one ** _n * _a;
         // Initial guess: 1.0
-        uint xNew = one;
-        uint iter = 0;
-        uint x = 0;
+        uint256 xNew = one;
+        uint256 iter = 0;
+        uint256 x = 0;
         while (xNew != x && iter < _maxIts) {
             x = xNew;
-            uint t0 = x ** (_n - 1);
+            uint256 t0 = x ** (_n - 1);
             if (x * t0 > a0) {
                 xNew = x - (x - a0 / t0) / _n;
             } else {
@@ -598,13 +607,13 @@ contract Oracle /*is usingOraclize*/ {
         int j = _right;
         if(i==j) return;
         Proposition storage prop = propositions[_prop_id];
-        address pivot = _arr[uint(_left + (_right - _left) / 2)];
-        uint pivot_score = prop.scores[pivot];
+        address pivot = _arr[uint256(_left + (_right - _left) / 2)];
+        uint256 pivot_score = prop.scores[pivot];
         while (i <= j) {
-            while (prop.scores[_arr[uint(i)]] < pivot_score) i++;
-            while (pivot_score < prop.scores[_arr[uint(j)]]) j--;
+            while (prop.scores[_arr[uint256(i)]] < pivot_score) i++;
+            while (pivot_score < prop.scores[_arr[uint256(j)]]) j--;
             if (i <= j) {
-                (_arr[uint(i)], _arr[uint(j)]) = (_arr[uint(j)], _arr[uint(i)]);
+                (_arr[uint256(i)], _arr[uint256(j)]) = (_arr[uint256(j)], _arr[uint256(i)]);
                 i++;
                 j--;
             }
