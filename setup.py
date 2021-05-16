@@ -6,7 +6,7 @@ ganache_blockchain_address = 'http://127.0.0.1:7545'
 # Path to the compiled contract JSON file
 compiled_contract_path = 'build/contracts/DeepThought.json'
 # Deployed contract address (see `migrate` command output: `contract address`)
-deployed_contract_address = '0xA5C9701b9634f613F6f77815C99F8f7b142FC211'
+deployed_contract_address = '0xAB04662f22847501ED9574D13277f9435161434d'
 
 def init():
 
