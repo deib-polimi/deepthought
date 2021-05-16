@@ -151,6 +151,10 @@ contract DeepThought /*is usingOraclize*/ {
         //Certifiers submitting cert F
         address[] F_certifiers;
     }
+
+    // ### Events
+
+    event return_id(uint256 prop_id);
     
     constructor(){
         // Initialize the parameters of the oracle
@@ -172,7 +176,14 @@ contract DeepThought /*is usingOraclize*/ {
 
     }
 
-    // ### DEBUG FUNCTIONS
+    // ### THE WORKFLOW SHOULD BE:
+    // SUBMITTER: subscribe > submit_proposition > [wait for all to vote] > [wait for revealing or eventually result_proposition]
+    // VOTER: subscribe > voting_request > vote > [wait for all to vote] > reveal_sealed_vote > [get the rewards when propositon is closed]
+    // CERTIFIER: subscribe > certification_request > show_propositions > certify_proposition > [get the rewards when propositon is closed]
+
+    // ### OUT FUNCTIONS
+
+    // ### Getters
 
     function get_balance() public view returns(uint256){
         return balances[msg.sender];
@@ -182,13 +193,45 @@ contract DeepThought /*is usingOraclize*/ {
         return reputations[msg.sender];
     }
 
+    function get_min_bounty() public view returns(uint256){
+        return min_bounty;
+    }
 
-    // ### THE WORKFLOW SHOULD BE:
-    // SUBMITTER: subscribe > submit_proposition > [wait for all to vote] > [wait for revealing or eventually result_proposition]
-    // VOTER: subscribe > voting_request > vote > [wait for all to vote] > reveal_sealed_vote > [get the rewards when propositon is closed]
-    // CERTIFIER: subscribe > certification_request > show_propositions > certify_proposition > [get the rewards when propositon is closed]
+    function get_min_stake_voter() public view returns (uint256){
+        return get_min_voting_stake(msg.sender);
+    }
 
-    // ### ORACLE FUNCTIONS
+    function get_max_stake_voter() public view returns (uint256){
+        return get_max_voting_stake();
+    }
+
+    function get_min_stake_certifier() public view returns (uint256){
+        return get_min_certifing_stake(msg.sender);
+    }
+
+    function get_max_stake_certifier() public view returns (uint256){
+        return get_max_certifing_stake();
+    }
+
+
+    // A certifier who staked can see all the propositions
+    function get_max_number_of_propositions() public view returns (uint256){
+        require (ask_to_certify_stakes[msg.sender] > 0, "Not a certifier! Make a request");
+        return proposition_list.length;
+    }
+
+    function show_propositions(uint256 _i) public view returns (bytes32){
+        require (ask_to_certify_stakes[msg.sender] > 0, "Not a certifier! Make a request");
+        require (_i < proposition_list.length, "Out of bound");
+        uint256 prop_id = proposition_list[_i];
+        return propositions[prop_id].content;
+    }
+
+    function get_prop_content(uint256 _prop_id) public view returns (bytes32){
+        return propositions[_prop_id].content;
+    }
+
+    // ### State Changer
 
     // Subscribe to the service and put founds in it
     function subscribe() public{
@@ -225,18 +268,6 @@ contract DeepThought /*is usingOraclize*/ {
         balances[msg.sender] -= _stake;
     }
     
-    // A certifier who staked can see all the propositions
-    function get_max_number_of_propositions() public view returns (uint256){
-        require (ask_to_certify_stakes[msg.sender] > 0, "Not a certifier! Make a request");
-        return proposition_list.length;
-    }
-    function show_propositions(uint256 _i) public view returns (bytes32){
-        require (ask_to_certify_stakes[msg.sender] > 0, "Not a certifier! Make a request");
-        require (_i < proposition_list.length, "Out of bound");
-        uint256 prop_id = proposition_list[_i];
-        return propositions[prop_id].content;
-    }
-    
     // A certifier send his vote for a proposition
     function certify_proposition(uint256 _prop_id, bool _vote) public {
         require (ask_to_certify_stakes[msg.sender] > 0, "Not a certifier! Make a request");
@@ -259,15 +290,17 @@ contract DeepThought /*is usingOraclize*/ {
         }
     }
     
-    // Put your stake to receive a random proposition
-    function voting_request(uint256 _stake) public returns (uint256) {
+    // Put your stake to receive a random proposition (via event)
+    function voting_request(uint256 _stake) public {
         require (_stake >= get_min_voting_stake(msg.sender), "The stake is not enough for your reputation");
         require (_stake <= get_max_voting_stake(), "The stake is too high");
         require (balances[msg.sender] >= _stake, "Not enough money to vote");
         uint256 prop_id = get_proposition();
         ask_to_vote_stakes[msg.sender][prop_id] = _stake;
         balances[msg.sender] -= _stake;
-        return prop_id;
+
+        //To return a value from a state changer function we emit an event
+        emit return_id(prop_id);
     }
     
     // Vote for the proposition you received
