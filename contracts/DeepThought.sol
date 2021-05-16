@@ -159,8 +159,8 @@ contract DeepThought /*is usingOraclize*/ {
         // the max reputation reachable for voters
         max_reputation = 100;
         
-        // the minimum bounty is 100 times the max bid of certification (with max_rep = 100 is about 10**16 wei ~ 50$)
-        min_bounty = get_max_certifing_stake() * 100;
+        // the minimum bounty is 100 times the max bid of certification (with max_rep = 100 is about 2 * 10**16 wei ~ 0.02 ETH ~ 50$)
+        min_bounty = get_max_certifing_stake() * 50;
         
         lost_reward_pool = 0;
 
