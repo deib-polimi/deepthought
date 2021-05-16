@@ -54,6 +54,10 @@ contract DeepThought /*is usingOraclize*/ {
     // Certifier > stake to check if he staked something so he can see the proposition list
     mapping (address => uint256) ask_to_certify_stakes;
 
+    mapping (address => uint256[]) voted_propositions;
+
+    mapping (address => uint256[]) certified_propositions;
+
     // ### STRUCTURES
 
     enum VoteOption {Unknown, True, False}
@@ -72,9 +76,6 @@ contract DeepThought /*is usingOraclize*/ {
         
         // Bounty attached to proposition (max stake is half bounty)
         uint256 bounty;
-        
-        // between 0 to 100
-        uint256 prediction;
         
         // Total voting stake
         uint256 stakes_total;
@@ -158,7 +159,7 @@ contract DeepThought /*is usingOraclize*/ {
     
     constructor(){
         // Initialize the parameters of the oracle
-        max_voters = 10;
+        max_voters = 3;
         
         // the max reputation reachable for voters
         max_reputation = 100;
@@ -231,6 +232,38 @@ contract DeepThought /*is usingOraclize*/ {
         return propositions[_prop_id].content;
     }
 
+    function get_number_voted_propositions() public view returns (uint256){
+        return voted_propositions[msg.sender].length;
+    }
+
+    function get_number_certified_propositions() public view returns (uint256){
+        return certified_propositions[msg.sender].length;
+    }
+
+    function get_voted_prop_id(uint256 index) public view returns (uint256){
+        return voted_propositions[msg.sender][index];
+    }
+
+    function get_certified_prop_id(uint256 index) public view returns (uint256){
+        return certified_propositions[msg.sender][index];
+    }
+
+    function get_prop_state(uint256 _prop_id) public view returns (bytes32){
+        PropositionStatus status = propositions[_prop_id].status;
+        
+        if (status == PropositionStatus.Open){
+            return bytes32("Open");
+        }
+        else{
+            if(status == PropositionStatus.VotingClose){
+                return bytes32("Reveal");
+            }
+            else{
+                return bytes32("Close");
+            }
+        }
+    }
+
     // ### State Changer
 
     // Subscribe to the service and put founds in it
@@ -241,7 +274,7 @@ contract DeepThought /*is usingOraclize*/ {
     }
     
     // Submit a new proposition
-    function submit_proposition(uint256 _prop_id, bytes32 _prop_content, uint256 _bounty, uint128 _prediction) public {
+    function submit_proposition(uint256 _prop_id, bytes32 _prop_content, uint256 _bounty) public {
         require (_bounty > min_bounty, "Bounty is too low, check the minimum bounty");
         require (balances[msg.sender] >= _bounty, "Not enough money to submit");
         num_propositions += 1;
@@ -251,7 +284,6 @@ contract DeepThought /*is usingOraclize*/ {
         p.submitter = msg.sender;
         p.content = _prop_content;
         p.bounty = _bounty;
-        p.prediction = _prediction;
         p.status = PropositionStatus.Open;
         p.decision = VoteOption.Unknown;
 
@@ -288,6 +320,8 @@ contract DeepThought /*is usingOraclize*/ {
             prop.F_certifiers.push(msg.sender);
             prop.num_F_certifiers++;
         }
+
+        certified_propositions[msg.sender].push(_prop_id);
     }
     
     // Put your stake to receive a random proposition (via event)
@@ -323,6 +357,8 @@ contract DeepThought /*is usingOraclize*/ {
         if (prop.num_voters >= max_voters){
             close_proposition(_prop_id);
         }
+
+        voted_propositions[msg.sender].push(_prop_id);
     }
 
     // The submitter can stop the revealing and resolve the proposition
@@ -342,13 +378,13 @@ contract DeepThought /*is usingOraclize*/ {
         Proposition storage prop = propositions[_prop_id];
         require(prop.status == PropositionStatus.VotingClose, "Proposition is not in the reveal phase!");
         bytes32 hashedVote = prop.voters_sealedVotes[msg.sender];
-        if(hashedVote == keccak256(abi.encodePacked(_prop_id, VoteOption.True, _salt))){
+        if(hashedVote == keccak256(abi.encodePacked(_prop_id, true, _salt))){
             // Vote was true
             prop.voters_unsealedVotes[msg.sender] = VoteOption.True;
             prop.num_T_voters++;
             prop.T_voters.push(msg.sender);
             prop.votes[VoteOption.True] += normalize_voter_vote_weight(msg.sender, _prop_id);
-        }else if(hashedVote == keccak256(abi.encodePacked(_prop_id, VoteOption.False, _salt))){
+        }else if(hashedVote == keccak256(abi.encodePacked(_prop_id, false, _salt))){
             // Vote was false
             prop.voters_unsealedVotes[msg.sender] = VoteOption.False;
             prop.num_F_voters++;

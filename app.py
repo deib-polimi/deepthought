@@ -43,7 +43,7 @@ def main():
             contract.functions.subscribe().transact()
             print("Now you are subscribed!")
         
-        else :
+        elif insert == 2 :
 
             while 1:
 
@@ -68,12 +68,12 @@ def main():
                 elif insert == 1:
 
                     min_stake_certifier = str(int(contract.functions.get_min_stake_certifier().call()) * currencyNormalizer)
-                    min_stake_certifier = str(int(contract.functions.get_max_stake_certifier().call()) * currencyNormalizer)
+                    max_stake_certifier = str(int(contract.functions.get_max_stake_certifier().call()) * currencyNormalizer)
 
                 elif insert == 2:
 
-                    insert = input("\nDo you want to make a vote request? (y/n) ")
-                    if insert == 'y':
+                    insert = input("\nVOTER MENU\n1 - Make a vote request\n2 - Show voted propositions state")
+                    if insert == '1':
 
                         min_stake_voter = str(int(contract.functions.get_min_stake_voter().call()) * currencyNormalizer)
                         max_stake_voter = str(int(contract.functions.get_max_stake_voter().call()) * currencyNormalizer)
@@ -82,21 +82,44 @@ def main():
                         stake = int(input('stake (wei) [' + min_stake_voter + ' wei, ' + max_stake_voter + ' wei]: '))
 
                         tx_hash = contract.functions.voting_request(int(stake/currencyNormalizer)).transact()
+
                         # receive the prop_id from a transaction event
                         prop_id = int(web3.eth.getTransactionReceipt(tx_hash)['logs'][0]['data'],16)
                         prop_content = str(contract.functions.get_prop_content(prop_id).call(),'utf-8')
                         print('\nYou can vote the proposition ' + str(prop_id) + ' (content: "' + prop_content + '")')
 
-                        insert = input('Do you want to vote this proposition? (y/n) ')
-                        if insert == 'y':
-                            vote = input('Vote (True/False): ')
-                            prediction = input('Prediction: ')
+                        print("\nVOTE THE PROPOSITION")
+                        vote = bool(input('Vote (True/False): '))
+                        prediction = int(input('Prediction [0 %,100 %] (your prediction on the proposition truthfulness): '))
+                        salt = bytes(input ('Insert your salt (REMEMBER IT!): '),'utf-8')
                             
-                            # To crate a sealed vote circa ????
-                            #salt = "42"
-                            #hashedVote = Web3.solidityKeccak(['bytes32'], prop_id + "VoteOption.True" + salt)
+                        hashedVote = web3.solidityKeccak(['uint256','bool','bytes32'], [prop_id, vote, salt])
 
-                else :
+                        contract.functions.vote(prop_id, hashedVote, prediction).transact()
+                        print("Nice! your vote has been recorded")
+
+                    elif insert == 2:
+                        
+                        voted_prop_num = contract.functions.get_number_voted_propositions().call()
+                        
+                        for i in range (0, voted_prop_num):
+                            prop_id = int(contract.functions.get_voted_prop_id(i).call())
+                            status = str(contract.functions.get_prop_state(prop_id).call(),16)
+
+                            reveal = status == "Reveal"
+
+                            print(str(prop_id) + ' -> ' + status)
+
+                        if reveal:
+                            insert = input('Do you want to reveal the "Reveal" proposition?(y/n): ')
+                            if insert == 'y':
+                                prop_id = int(input('Proposition id: '))
+                                salt = bytes(input('Insert your salt to reveal your vote (YOU HAD TO REMEMBER IT!): '),'utf-8')
+
+                                contract.functions.reveal_sealed_vote(prop_id, salt)
+
+
+                elif insert == 3 :
 
                     min_bounty = str(web3.fromWei(int(contract.functions.get_min_bounty().call()) * currencyNormalizer, 'ether'))
 
@@ -104,9 +127,8 @@ def main():
                     prop_id = int(input('proposition id: '))
                     prop_content = input('proposition content: ')
                     bounty = float(input('bounty (ETH) [' + min_bounty + ' ETH, your balance]: '))
-                    prediction = int(input('prediction: '))
 
-                    contract.functions.submit_proposition(prop_id, bytes(prop_content, 'utf-8'), int(bounty * (10 ** 18)/currencyNormalizer), prediction).transact()
+                    contract.functions.submit_proposition(prop_id, bytes(prop_content, 'utf-8'), int(bounty * (10 ** 18)/currencyNormalizer)).transact()
 
             '''
             # Debug utilities
