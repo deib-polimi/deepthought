@@ -98,17 +98,11 @@ contract DeepThought /*is usingOraclize*/ {
         // Total certifing value for each option
         mapping (VoteOption => uint256) certificates;
 
-        // Number of people who certified (used to iterate map)
-        uint256 num_certifiers;
-
         // List of the addresses who certified
         address[] certifiers_list;
         
         // Certifiers vote and stake (no need to divide it in multiple maps like for the voters since the vote is not sealed)
         mapping (address => mapping (VoteOption => uint256)) certifier_stakes;
-        
-        // Current number of people who voted
-        uint256 num_voters;
 
         // List of the addresses who voted
         address[] voters_list;
@@ -124,36 +118,21 @@ contract DeepThought /*is usingOraclize*/ {
 
         // Voters unsealed vote
         mapping(address => VoteOption) voters_unsealedVotes;
-        
-        // Number of scores (to iterate scoreboard)
-        uint256 num_scoreboard;
 
         // Scoreboard: importance order
         address[] scoreboard;
         
         // Score for each voter
         mapping(address => uint256) scores;
-        
-        // Number of true voters (to iterate following list)
-        uint256 num_T_voters;
 
         // Voters submitting vote T
         address[] T_voters;
-
-        // Number of false voters (to iterate following list)
-        uint256 num_F_voters;
         
         // Voters submitting vote F
         address[] F_voters;
-
-        // Number of true certifiers (to iterate following list)
-        uint256 num_T_certifiers;
         
         //Certifiers submitting cert T
         address[] T_certifiers;
-        
-        // Number of false certifiers (to iterate following list)
-        uint256 num_F_certifiers;
 
         //Certifiers submitting cert F
         address[] F_certifiers;
@@ -165,7 +144,7 @@ contract DeepThought /*is usingOraclize*/ {
     
     constructor(){
         // Initialize the parameters of the oracle
-        max_voters = 3;
+        max_voters = 2;
         
         // the max reputation reachable for voters
         max_reputation = 100;
@@ -341,7 +320,6 @@ contract DeepThought /*is usingOraclize*/ {
         // Get the chosen proposition
         Proposition storage prop = propositions[_prop_id];
         // Increment the vote and move the stake to the proposition chosen
-        prop.num_certifiers++;
         prop.certifiers_list.push(msg.sender);
         uint256 stake = ask_to_certify_stakes[msg.sender];
         ask_to_certify_stakes[msg.sender] = 0;
@@ -350,10 +328,8 @@ contract DeepThought /*is usingOraclize*/ {
         prop.certificates[_vote? VoteOption.True : VoteOption.False] += normalize_certifier_vote_weight(msg.sender, _prop_id, _vote);
         if(_vote){
             prop.T_certifiers.push(msg.sender);
-            prop.num_T_certifiers++;
         }else{
             prop.F_certifiers.push(msg.sender);
-            prop.num_F_certifiers++;
         }
 
         certified_propositions[msg.sender].push(_prop_id);
@@ -381,7 +357,6 @@ contract DeepThought /*is usingOraclize*/ {
         // Move the stake to the proposition and vote
         uint256 stake = ask_to_vote_stakes[msg.sender][_prop_id];
         ask_to_vote_stakes[msg.sender][_prop_id] = 0;
-        prop.num_voters++;
         prop.voters_list.push(msg.sender);
         prop.voters_sealedVotes[msg.sender] = _hashedVote;
         prop.voters_unsealedVotes[msg.sender] = VoteOption.Unknown;
@@ -389,7 +364,7 @@ contract DeepThought /*is usingOraclize*/ {
         prop.stakes_total += stake;
         prop.prediction_cert[msg.sender] = _predictionPercent;
         // If the max_voters number is reached the voting phase is closed
-        if (prop.num_voters >= max_voters){
+        if (prop.voters_list.length >= max_voters){
             close_proposition(_prop_id);
         }
 
@@ -404,20 +379,18 @@ contract DeepThought /*is usingOraclize*/ {
         if(hashedVote == keccak256(abi.encodePacked(_prop_id, true, _salt))){
             // Vote was true
             prop.voters_unsealedVotes[msg.sender] = VoteOption.True;
-            prop.num_T_voters++;
             prop.T_voters.push(msg.sender);
             prop.votes[VoteOption.True] += normalize_voter_vote_weight(msg.sender, _prop_id);
         }else if(hashedVote == keccak256(abi.encodePacked(_prop_id, false, _salt))){
             // Vote was false
             prop.voters_unsealedVotes[msg.sender] = VoteOption.False;
-            prop.num_F_voters++;
             prop.F_voters.push(msg.sender);
             prop.votes[VoteOption.False] += normalize_voter_vote_weight(msg.sender, _prop_id);
         }else{
             revert("Wrong salt!!!");
         }
 
-        if(prop.num_F_voters + prop.num_T_voters == prop.num_voters){
+        if(prop.F_voters.length + prop.T_voters.length == prop.voters_list.length){
             elaborate_result_proposition(_prop_id);
         }
     }
@@ -427,7 +400,7 @@ contract DeepThought /*is usingOraclize*/ {
     function elaborate_result_proposition(uint256 _prop_id) internal {
         stop_revealing_proposition(_prop_id);
         set_decision(_prop_id);
-        //create_scoreboard(_prop_id);
+        create_scoreboard(_prop_id);
         //distribute_rewards(_prop_id);
         //distribute_reputation(_prop_id);
     }
@@ -458,7 +431,7 @@ contract DeepThought /*is usingOraclize*/ {
     function distribute_reputation(uint256 _prop_id) internal {
         Proposition storage prop = propositions[_prop_id];
         require(prop.status == PropositionStatus.RevealingClose);
-        for(uint256 i = 0; i < prop.num_voters; i++){
+        for(uint256 i = 0; i < prop.voters_list.length; i++){
             address voter_addr = prop.voters_list[i];
             if(prop.voters_unsealedVotes[voter_addr] == prop.decision){
                 increment_reputation(voter_addr);
@@ -466,7 +439,7 @@ contract DeepThought /*is usingOraclize*/ {
                 decrement_reputation(voter_addr);
             }
         }
-        for(uint256 j = 0; j < prop.num_certifiers; j++){
+        for(uint256 j = 0; j < prop.certifiers_list.length; j++){
             address cert_addr = prop.certifiers_list[j];
             if(prop.certifier_stakes[cert_addr][prop.decision] > 0){
                 increment_reputation(cert_addr);
@@ -481,7 +454,7 @@ contract DeepThought /*is usingOraclize*/ {
         Proposition storage prop = propositions[_prop_id];
         require(prop.status == PropositionStatus.RevealingClose);
         uint256 reward_pool = prop.stakes_total + prop.bounty;
-        for(uint256 i = 0; i < prop.num_certifiers; i++){
+        for(uint256 i = 0; i < prop.certifiers_list.length; i++){
             address addr = prop.certifiers_list[i];
             uint256 cert_reward = get_certifier_reward(addr, _prop_id);
             if(prop.certifier_stakes[addr][prop.decision] > 0){
@@ -491,7 +464,7 @@ contract DeepThought /*is usingOraclize*/ {
                 lost_reward_pool -= lost_reward_pool/lost_reward_pool_split;
             }
         }
-        for(uint256 i = 0; i < prop.num_scoreboard; i++){
+        for(uint256 i = 0; i < prop.scoreboard.length; i++){
             address addr = prop.scoreboard[i];
             uint256 voter_reward = get_voter_reward(addr, _prop_id);
             if (reward_pool - voter_reward > 0){
@@ -520,22 +493,20 @@ contract DeepThought /*is usingOraclize*/ {
     // Create the scoreboard
     function create_scoreboard(uint256 _prop_id) internal {
         Proposition storage prop = propositions[_prop_id];
-        require(prop.status == PropositionStatus.RevealingClose);  
-        require(prop.decision == VoteOption.True || prop.decision == VoteOption.False || prop.decision == VoteOption.Unknown);
-        for(uint256 i = 0; i < prop.num_T_voters; i++){
-           address voter_addr = prop.T_voters[i];
-           prop.num_scoreboard++;
+        require(prop.status == PropositionStatus.RevealingClose);
+        address voter_addr;
+        for(uint256 i = 0; i < prop.T_voters.length; i++){
+           voter_addr = prop.T_voters[i];
            prop.scoreboard.push(voter_addr);
            prop.scores[voter_addr] = assign_score(_prop_id, voter_addr);
         }
-        for(uint256 j = 0; j < prop.num_F_voters; j++){
-           address voter_addr = prop.F_voters[j];
-           prop.num_scoreboard++;
+        for(uint256 j = 0; j < prop.F_voters.length; j++){
+           voter_addr = prop.F_voters[j];
            prop.scoreboard.push(voter_addr);
            prop.scores[voter_addr] = assign_score(_prop_id, voter_addr);           
         }
 
-        order_scoreboard(_prop_id);
+        //order_scoreboard(_prop_id);
     } 
 
     // Order scoreboard to get highest scores first
@@ -592,7 +563,6 @@ contract DeepThought /*is usingOraclize*/ {
     // Calculate the reward of a voter for a proposition
     function get_voter_reward(address _voter, uint256 prop_id) internal view returns(uint256) {
         Proposition storage p = propositions[prop_id];
-        //uint256 predictionCert = p.prediction_cert[_voter];
         uint256 stake = p.voters_stakes[_voter];
         uint256 reputation = reputations[_voter];
         return beta * (stake ** 2) + (100 - beta) * (stake + reputation);
@@ -613,43 +583,40 @@ contract DeepThought /*is usingOraclize*/ {
     }
     
     // Generate the scoreboard for a proposition
-    function assign_score(uint256 _prop_id, address _voter) internal view returns(uint256){
+    function assign_score(uint _prop_id, address _voter) internal view returns(uint){
         Proposition storage prop = propositions[_prop_id];
-        require(prop.status == PropositionStatus.VotingClose);
-        uint256 pred_score;
-        uint256 info_score;
-        uint256 q = prop.prediction_cert[_voter];
-        if(prop.decision == VoteOption.True)
+        require(prop.status == PropositionStatus.RevealingClose);
+        uint pred_score;
+        uint info_score;
+        uint q = prop.prediction_cert[_voter];
+        VoteOption w = VoteOption.Unknown;
+        while(w == VoteOption.Unknown)
         {
-            pred_score = prop.voters_unsealedVotes[_voter]==VoteOption.True ? 200 * q - q ** 2 : 10000 - q ** 2;
+            w = prop.voters_unsealedVotes[prop.voters_list[random(prop.voters_list.length)]];
         }
-        else if(prop.decision == VoteOption.False)
-        {
-            pred_score = prop.voters_unsealedVotes[_voter]==VoteOption.False ? 200 * q - q ** 2 : 10000 - q ** 2;
-        }
-        info_score = 10000 - (prediction_mean(_voter, prop) - prop.prediction_cert[_voter]) ** 2;
+        pred_score = w == VoteOption.True ? 200 * q - q ** 2 : 10000 - q ** 2;
+        info_score = 10000 - (prediction_mean(_voter, prop) - q) ** 2;
         return pred_score + info_score;
     }
 
-    // Produce the geometric mean without the predicion of the voter itself
+    // Produce the geometric mean without the prediction of the voter itself
     function prediction_mean(address _voter, Proposition storage _prop) internal view returns(uint256){
-        uint8 i;
+        uint256 i;
         uint256 tot = 1;
         uint256 num;
         if(_prop.voters_unsealedVotes[_voter] == VoteOption.True){
-            //TODO: check vote
             num = _prop.T_voters.length;
-            for(i = 0; i < num; i ++){
+            for(i = 0; i < num; i++){
                 tot *= _prop.prediction_cert[_prop.T_voters[i]];
             }
         }else{
             num = _prop.F_voters.length;
-            for(i = 0; i < num; i ++){
+            for(i = 0; i < num; i++){
                tot *= _prop.prediction_cert[_prop.F_voters[i]];
             }
         }
         tot /= _prop.prediction_cert[_voter];
-        return nthRoot(tot, num, 0, 1000);
+        return 1nthRoot(tot, num, 0, 1000);
     }
     
     // Increment the reputation of a voter
