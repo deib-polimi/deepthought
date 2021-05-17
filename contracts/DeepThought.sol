@@ -32,12 +32,12 @@ contract DeepThought /*is usingOraclize*/ {
     uint16 beta;
 
     // ### GLOBAL VARIABLES
-    
-    // Number of propositions (used to iterate the list)
-    uint256 num_propositions;
 
     // List of all the prop_id
     uint256[] proposition_list;
+
+    // List of closed/revealing prop_id
+    uint256[] old_proposition_list;
 
     // Map of all the prop_id > propositions
     mapping (uint256 => Proposition) propositions;
@@ -57,6 +57,8 @@ contract DeepThought /*is usingOraclize*/ {
     mapping (address => uint256[]) voted_propositions;
 
     mapping (address => uint256[]) certified_propositions;
+
+    mapping (address => uint256[]) submitted_propositions;
 
     // ### STRUCTURES
 
@@ -79,6 +81,10 @@ contract DeepThought /*is usingOraclize*/ {
         
         // Total voting stake
         uint256 stakes_total;
+
+        mapping (address => uint256) voters_reward;
+
+        mapping (address => uint256) certifiers_reward;
 
         // The status of the proposition Open > votingClosed > RevealClosed
         PropositionStatus status;
@@ -236,6 +242,10 @@ contract DeepThought /*is usingOraclize*/ {
         return voted_propositions[msg.sender].length;
     }
 
+    function get_number_submitted_propositions() public view returns (uint256){
+        return submitted_propositions[msg.sender].length;
+    }
+
     function get_number_certified_propositions() public view returns (uint256){
         return certified_propositions[msg.sender].length;
     }
@@ -246,6 +256,10 @@ contract DeepThought /*is usingOraclize*/ {
 
     function get_certified_prop_id(uint256 index) public view returns (uint256){
         return certified_propositions[msg.sender][index];
+    }
+
+    function get_submitted_prop_id(uint256 index) public view returns (uint256){
+        return submitted_propositions[msg.sender][index];
     }
 
     function get_prop_state(uint256 _prop_id) public view returns (bytes32){    
@@ -261,6 +275,29 @@ contract DeepThought /*is usingOraclize*/ {
             }
         }
     }
+
+    function get_outcome(uint256 _prop_id) public view returns (bytes32){
+        if (propositions[_prop_id].decision == VoteOption.True){
+            return bytes32("True");
+        }
+        else{
+            if(propositions[_prop_id].decision == VoteOption.False){
+                return bytes32("False");
+            }
+            else{
+                return bytes32("Unknown");
+            }
+        }
+    }
+
+    function get_reward_voter_by_prop_id(uint256 _prop_id) public view returns (uint256){
+        return propositions[_prop_id].voters_reward[msg.sender];
+    }
+
+    function get_reward_certifier_by_prop_id(uint256 _prop_id) public view returns (uint256){
+        return propositions[_prop_id].certifiers_reward[msg.sender];
+    }
+
     // ### State Changer
 
     // Subscribe to the service and put founds in it
@@ -274,9 +311,8 @@ contract DeepThought /*is usingOraclize*/ {
     function submit_proposition(uint256 _prop_id, bytes32 _prop_content, uint256 _bounty) public {
         require (_bounty > min_bounty, "Bounty is too low, check the minimum bounty");
         require (balances[msg.sender] >= _bounty, "Not enough money to submit");
-        num_propositions += 1;
-        proposition_list.push(num_propositions);
-        Proposition storage p = propositions[num_propositions];
+        proposition_list.push(_prop_id);
+        Proposition storage p = propositions[_prop_id];
         p.id =_prop_id;
         p.submitter = msg.sender;
         p.content = _prop_content;
@@ -285,6 +321,8 @@ contract DeepThought /*is usingOraclize*/ {
         p.decision = VoteOption.Unknown;
 
         balances[msg.sender] -= _bounty;
+
+        submitted_propositions[msg.sender].push(_prop_id);
     }
     
     // Put your stake to be able to view the propositions as a certifier
@@ -358,20 +396,8 @@ contract DeepThought /*is usingOraclize*/ {
         voted_propositions[msg.sender].push(_prop_id);
     }
 
-    // The submitter can stop the revealing and resolve the proposition
-    function result_proposition(uint256 _prop_id) public {
-        Proposition storage prop = propositions[_prop_id];
-        require(prop.status == PropositionStatus.VotingClose, "Proposition is not in the reveal phase!");
-        require(prop.submitter == msg.sender, "This is not your proposition, you can't close it");
-        stop_revealing_proposition(_prop_id);
-        set_decision(_prop_id);
-        create_scoreboard(_prop_id);
-        distribute_rewards(_prop_id);
-        distribute_reputation(_prop_id);
-    }
-
     // Reveal the vote for a proposition
-    function reveal_sealed_vote(uint256 _prop_id, bytes32 _salt) public {
+    function reveal_sealed_vote(uint256 _prop_id, string memory _salt) public {
         Proposition storage prop = propositions[_prop_id];
         require(prop.status == PropositionStatus.VotingClose, "Proposition is not in the reveal phase!");
         bytes32 hashedVote = prop.voters_sealedVotes[msg.sender];
@@ -387,19 +413,38 @@ contract DeepThought /*is usingOraclize*/ {
             prop.num_F_voters++;
             prop.F_voters.push(msg.sender);
             prop.votes[VoteOption.False] += normalize_voter_vote_weight(msg.sender, _prop_id);
+        }else{
+            revert("Wrong salt!!!");
         }
+
         if(prop.num_F_voters + prop.num_T_voters == prop.num_voters){
-            stop_revealing_proposition(_prop_id);
+            elaborate_result_proposition(_prop_id);
         }
     }
  
     // ### INTERNAL FUNCTIONS 
+
+    function elaborate_result_proposition(uint256 _prop_id) internal {
+        stop_revealing_proposition(_prop_id);
+        set_decision(_prop_id);
+        //create_scoreboard(_prop_id);
+        //distribute_rewards(_prop_id);
+        //distribute_reputation(_prop_id);
+    }
 
     // Change status of proposition Open > VotingClosed
     function close_proposition(uint256 _prop_id) internal {
         Proposition storage prop = propositions[_prop_id];
         require(prop.status == PropositionStatus.Open);
         prop.status = PropositionStatus.VotingClose;
+
+        for(uint256 i = 0; i < proposition_list.length; i++){
+            if(proposition_list[i] == _prop_id){
+                old_proposition_list.push(proposition_list[i]);
+                proposition_list[i] = proposition_list[proposition_list.length - 1];
+                proposition_list.pop();
+            }
+        }
     }
 
     // Change status of proposition VotingClosed > RevealingClosed
@@ -441,6 +486,7 @@ contract DeepThought /*is usingOraclize*/ {
             uint256 cert_reward = get_certifier_reward(addr, _prop_id);
             if(prop.certifier_stakes[addr][prop.decision] > 0){
                 balances[addr] += cert_reward;
+                prop.certifiers_reward[addr] += cert_reward;
                 reward_pool -= cert_reward - lost_reward_pool/lost_reward_pool_split;
                 lost_reward_pool -= lost_reward_pool/lost_reward_pool_split;
             }
@@ -450,6 +496,7 @@ contract DeepThought /*is usingOraclize*/ {
             uint256 voter_reward = get_voter_reward(addr, _prop_id);
             if (reward_pool - voter_reward > 0){
                 balances[addr] += voter_reward;
+                prop.voters_reward[addr] += voter_reward;
                 reward_pool -= voter_reward;
             }
         }
@@ -466,11 +513,8 @@ contract DeepThought /*is usingOraclize*/ {
         if(prop.votes[VoteOption.False] > prop.votes[VoteOption.True]) voter_result = VoteOption.False;
         if(prop.certificates[VoteOption.True] > prop.certificates[VoteOption.False]) cert_result = VoteOption.True;
         if(prop.certificates[VoteOption.False] > prop.certificates[VoteOption.True]) cert_result = VoteOption.False;
-        if(voter_result == cert_result){
-            prop.decision = cert_result;
-        }else{
-            prop.decision = VoteOption.Unknown;
-        }
+
+        if(voter_result == cert_result || cert_result == VoteOption.Unknown) prop.decision = voter_result;
     }  
 
     // Create the scoreboard
@@ -490,6 +534,7 @@ contract DeepThought /*is usingOraclize*/ {
            prop.scoreboard.push(voter_addr);
            prop.scores[voter_addr] = assign_score(_prop_id, voter_addr);           
         }
+
         order_scoreboard(_prop_id);
     } 
 
@@ -563,8 +608,8 @@ contract DeepThought /*is usingOraclize*/ {
     
     // Return a random propositon for a voter
     function get_proposition() internal view returns(uint256) {
-        require(num_propositions > 0, "No propositions available");
-        return proposition_list[random(num_propositions)];
+        require(proposition_list.length > 0, "No propositions available");
+        return proposition_list[random(proposition_list.length)];
     }
     
     // Generate the scoreboard for a proposition
