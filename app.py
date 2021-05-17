@@ -72,8 +72,9 @@ def main():
 
                 elif insert == 2:
 
-                    insert = input("\nVOTER MENU\n1 - Make a vote request\n2 - Show voted propositions state")
-                    if insert == '1':
+                    insert = int(input("\nVOTER MENU\n1 - Make a vote request\n2 - Show voted propositions state\n"))
+
+                    if insert == 1:
 
                         min_stake_voter = str(int(contract.functions.get_min_stake_voter().call()) * currencyNormalizer)
                         max_stake_voter = str(int(contract.functions.get_max_stake_voter().call()) * currencyNormalizer)
@@ -101,12 +102,14 @@ def main():
                     elif insert == 2:
                         
                         voted_prop_num = contract.functions.get_number_voted_propositions().call()
+                        reveal = False
                         
                         for i in range (0, voted_prop_num):
                             prop_id = int(contract.functions.get_voted_prop_id(i).call())
-                            status = str(contract.functions.get_prop_state(prop_id).call(),16)
+                            status = str(contract.functions.get_prop_state(prop_id).call(), 'utf-8')
 
-                            reveal = status == "Reveal"
+                            if(status == 'Reveal'):
+                                reveal = True
 
                             print(str(prop_id) + ' -> ' + status)
 

@@ -11,25 +11,25 @@ contract DeepThought /*is usingOraclize*/ {
     // ### PARAMETERS OF THE ORACLE
     
     // Number of votes required to close a proposition
-    uint256 max_voters;
+    uint64 max_voters;
     
     // Minimum value of the bounty
-    uint256 min_bounty;
+    uint64 min_bounty;
     
     // Pool of money of Unknown propositions
     uint256 lost_reward_pool;
 
     // Divider of lost_reward_pool being distributed to certifiers
-    uint256 lost_reward_pool_split;
+    uint16 lost_reward_pool_split;
     
     // Maximum reputation value for a voter
-    uint256 max_reputation;
+    uint16 max_reputation;
 
     // Parameter for vote weight calculation
-    uint128 alfa;
+    uint16 alfa;
 
     // Parameter for reward calculation
-    uint128 beta;
+    uint16 beta;
 
     // ### GLOBAL VARIABLES
     
@@ -165,7 +165,7 @@ contract DeepThought /*is usingOraclize*/ {
         max_reputation = 100;
         
         // the minimum bounty is 100 times the max bid of certification (with max_rep = 100 is about 2 * 10**16 wei ~ 0.02 ETH ~ 50$)
-        min_bounty = get_max_certifing_stake() * 50;
+        min_bounty = uint64(get_max_certifing_stake() * 50);
         
         lost_reward_pool = 0;
 
@@ -248,14 +248,12 @@ contract DeepThought /*is usingOraclize*/ {
         return certified_propositions[msg.sender][index];
     }
 
-    function get_prop_state(uint256 _prop_id) public view returns (bytes32){
-        PropositionStatus status = propositions[_prop_id].status;
-        
-        if (status == PropositionStatus.Open){
+    function get_prop_state(uint256 _prop_id) public view returns (bytes32){    
+        if (propositions[_prop_id].status == PropositionStatus.Open){
             return bytes32("Open");
         }
         else{
-            if(status == PropositionStatus.VotingClose){
+            if(propositions[_prop_id].status == PropositionStatus.VotingClose){
                 return bytes32("Reveal");
             }
             else{
@@ -263,7 +261,6 @@ contract DeepThought /*is usingOraclize*/ {
             }
         }
     }
-
     // ### State Changer
 
     // Subscribe to the service and put founds in it
