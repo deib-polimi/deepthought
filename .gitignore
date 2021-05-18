@@ -2,5 +2,6 @@ build/
 node_modules/
 package-lock.json
 package.json
+setup.py
 
 __pycache__/setup.cpython-38.pyc
