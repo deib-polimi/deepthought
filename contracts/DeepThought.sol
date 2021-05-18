@@ -146,7 +146,7 @@ contract DeepThought /*is usingOraclize*/ {
     
     constructor(){
         // Initialize the parameters of the oracle
-        max_voters = 1;
+        max_voters = 3;
         
         // the max reputation reachable for voters
         max_reputation = 100;
@@ -403,7 +403,7 @@ contract DeepThought /*is usingOraclize*/ {
         stop_revealing_proposition(_prop_id);
         set_decision(_prop_id);
         create_scoreboard(_prop_id);
-        //distribute_rewards(_prop_id); TEST
+        distribute_rewards(_prop_id); 
         distribute_reputation(_prop_id);
     }
 
@@ -518,15 +518,15 @@ contract DeepThought /*is usingOraclize*/ {
         for(uint256 i = 0; i < prop.T_voters.length; i++){
            voter_addr = prop.T_voters[i];
            prop.scoreboard.push(voter_addr);
-           //prop.scores[voter_addr] = assign_score(_prop_id, voter_addr); TEST
+           prop.scores[voter_addr] = assign_score(_prop_id, voter_addr); 
         }
         for(uint256 j = 0; j < prop.F_voters.length; j++){
            voter_addr = prop.F_voters[j];
            prop.scoreboard.push(voter_addr);
-           //prop.scores[voter_addr] = assign_score(_prop_id, voter_addr); TEST
+           prop.scores[voter_addr] = assign_score(_prop_id, voter_addr); 
         }
 
-        //order_scoreboard(_prop_id); TEST
+        order_scoreboard(_prop_id);
     } 
 
     // Order scoreboard to get highest scores first
@@ -610,7 +610,7 @@ contract DeepThought /*is usingOraclize*/ {
     // Generate the scoreboard for a proposition
     function assign_score(uint _prop_id, address _voter) internal view returns(uint){
         Proposition storage prop = propositions[_prop_id];
-        require(prop.status == PropositionStatus.RevealingClose);
+        require(prop.status == PropositionStatus.RevealingClose, "Proposition status should be RevealingClose!");
         uint pred_score;
         uint info_score;
         uint q = prop.prediction_cert[_voter];
@@ -620,12 +620,14 @@ contract DeepThought /*is usingOraclize*/ {
             w = prop.voters_unsealedVotes[prop.voters_list[random(prop.voters_list.length)]];
         }
         pred_score = w == VoteOption.True ? 200 * q - q ** 2 : 10000 - q ** 2;
-        info_score = 10000 - (prediction_mean(_voter, prop) - q) ** 2;
+        uint pred_mean = prediction_mean(_voter, _prop_id);
+        info_score = pred_mean > 0? 10000 - (pred_mean - q) ** 2 : 10000 - q ** 2;
         return pred_score + info_score;
     }
 
     // Produce the aritmetic mean without the prediction of the voter itself
-    function prediction_mean(address _voter, Proposition storage _prop) internal view returns(uint256){
+    function prediction_mean(address _voter, uint256 _prop_id) internal view returns(uint256){
+        Proposition storage _prop = propositions[_prop_id];
         uint256 i;
         uint256 tot = 0;
         uint256 num;
@@ -641,6 +643,7 @@ contract DeepThought /*is usingOraclize*/ {
             }
         }
         tot -= _prop.prediction_cert[_voter];
+        require(num != 0 , "Division by zero!");
         return tot/num; 
     }
     
