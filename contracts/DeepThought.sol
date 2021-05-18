@@ -624,25 +624,24 @@ contract DeepThought /*is usingOraclize*/ {
         return pred_score + info_score;
     }
 
-    // Produce the geometric mean without the prediction of the voter itself
+    // Produce the aritmetic mean without the prediction of the voter itself
     function prediction_mean(address _voter, Proposition storage _prop) internal view returns(uint256){
         uint256 i;
-        uint256 tot = 1;
+        uint256 tot = 0;
         uint256 num;
         if(_prop.voters_unsealedVotes[_voter] == VoteOption.True){
             num = _prop.T_voters.length;
             for(i = 0; i < num; i++){
-                tot *= _prop.prediction_cert[_prop.T_voters[i]];
+                tot += _prop.prediction_cert[_prop.T_voters[i]];
             }
         }else{
             num = _prop.F_voters.length;
             for(i = 0; i < num; i++){
-               tot *= _prop.prediction_cert[_prop.F_voters[i]];
+               tot += _prop.prediction_cert[_prop.F_voters[i]];
             }
         }
-        tot /= _prop.prediction_cert[_voter];
-        return random(100); //TEST
-        //return nthRoot(tot, num, 0, 1000); TEST
+        tot -= _prop.prediction_cert[_voter];
+        return tot/num; 
     }
     
     // Increment the reputation of a voter
@@ -679,31 +678,7 @@ contract DeepThought /*is usingOraclize*/ {
         }
     }
     
-    // Get the n-root of a number
-    function nthRoot(uint256 _a, uint256 _n, uint256 _dp, uint256 _maxIts) pure public returns(uint256) {
-        assert (_n > 1);
-        // The scale factor is a crude way to turn everything into integer calcs.
-        // Actually do (a * (10 ^ ((dp + 1) * n))) ^ (1/n)
-        // We calculate to one extra dp and round at the end
-        uint256 one = 10 ** (1 + _dp);
-        uint256 a0 = one ** _n * _a;
-        // Initial guess: 1.0
-        uint256 xNew = one;
-        uint256 iter = 0;
-        uint256 x = 0;
-        while (xNew != x && iter < _maxIts) {
-            x = xNew;
-            uint256 t0 = x ** (_n - 1);
-            if (x * t0 > a0) {
-                xNew = x - (x - a0 / t0) / _n;
-            } else {
-                xNew = x + (a0 / t0 - x) / _n;
-            }
-            ++iter;
-        }
-        // Round to nearest in the last dp.
-        return (xNew + 5) / 10;
-    }
+    // RIP n-rooth :(
 
     // Quicksorting scoreboard addresses comparing their scores
     function quickSort(address[] memory _arr, int _left, int _right, uint256 _prop_id) internal{
