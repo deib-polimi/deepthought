@@ -20,7 +20,7 @@ contract DeepThought /*is usingOraclize*/ {
     uint256 lost_reward_pool;
 
     // Divider of lost_reward_pool being distributed to certifiers
-    uint16 lost_reward_pool_split;
+    uint256 lost_reward_pool_split;
     
     // Maximum reputation value for a voter
     uint16 max_reputation;
@@ -138,13 +138,15 @@ contract DeepThought /*is usingOraclize*/ {
         address[] F_certifiers;
     }
 
-    // ### Events
+    // ### EVENTS
 
     event return_id(uint256 prop_id);
+
+    // ### CONSTRUCTORS
     
     constructor(){
         // Initialize the parameters of the oracle
-        max_voters = 2;
+        max_voters = 1;
         
         // the max reputation reachable for voters
         max_reputation = 100;
@@ -206,11 +208,10 @@ contract DeepThought /*is usingOraclize*/ {
         return proposition_list.length;
     }
 
-    function show_propositions(uint256 _i) public view returns (bytes32){
+    function show_propositions(uint256 _i) public view returns (uint256){
         require (ask_to_certify_stakes[msg.sender] > 0, "Not a certifier! Make a request");
         require (_i < proposition_list.length, "Out of bound");
-        uint256 prop_id = proposition_list[_i];
-        return propositions[prop_id].content;
+        return proposition_list[_i];
     }
 
     function get_prop_content(uint256 _prop_id) public view returns (bytes32){
@@ -325,10 +326,11 @@ contract DeepThought /*is usingOraclize*/ {
         ask_to_certify_stakes[msg.sender] = 0;
         prop.certifier_stakes[msg.sender][_vote? VoteOption.True : VoteOption.False] += stake;
         prop.stakes_total += stake;
-        prop.certificates[_vote? VoteOption.True : VoteOption.False] += normalize_certifier_vote_weight(msg.sender, _prop_id, _vote);
         if(_vote){
+            prop.certificates[VoteOption.True] += normalize_certifier_vote_weight(msg.sender, _prop_id, _vote);
             prop.T_certifiers.push(msg.sender);
         }else{
+            prop.certificates[VoteOption.False] += normalize_certifier_vote_weight(msg.sender, _prop_id, _vote);
             prop.F_certifiers.push(msg.sender);
         }
 
@@ -401,8 +403,8 @@ contract DeepThought /*is usingOraclize*/ {
         stop_revealing_proposition(_prop_id);
         set_decision(_prop_id);
         create_scoreboard(_prop_id);
-        //distribute_rewards(_prop_id);
-        //distribute_reputation(_prop_id);
+        //distribute_rewards(_prop_id); TEST
+        distribute_reputation(_prop_id);
     }
 
     // Change status of proposition Open > VotingClosed
@@ -431,12 +433,15 @@ contract DeepThought /*is usingOraclize*/ {
     function distribute_reputation(uint256 _prop_id) internal {
         Proposition storage prop = propositions[_prop_id];
         require(prop.status == PropositionStatus.RevealingClose);
+
         for(uint256 i = 0; i < prop.voters_list.length; i++){
             address voter_addr = prop.voters_list[i];
             if(prop.voters_unsealedVotes[voter_addr] == prop.decision){
                 increment_reputation(voter_addr);
             }else{
-                decrement_reputation(voter_addr);
+                if(prop.decision != VoteOption.Unknown){
+                    decrement_reputation(voter_addr);
+                }
             }
         }
         for(uint256 j = 0; j < prop.certifiers_list.length; j++){
@@ -444,7 +449,9 @@ contract DeepThought /*is usingOraclize*/ {
             if(prop.certifier_stakes[cert_addr][prop.decision] > 0){
                 increment_reputation(cert_addr);
             }else{
-                decrement_reputation(cert_addr);
+                if(prop.decision != VoteOption.Unknown){
+                    decrement_reputation(cert_addr);
+                }
             }
         }
     }  
@@ -454,16 +461,18 @@ contract DeepThought /*is usingOraclize*/ {
         Proposition storage prop = propositions[_prop_id];
         require(prop.status == PropositionStatus.RevealingClose);
         uint256 reward_pool = prop.stakes_total + prop.bounty;
+
         for(uint256 i = 0; i < prop.certifiers_list.length; i++){
             address addr = prop.certifiers_list[i];
             uint256 cert_reward = get_certifier_reward(addr, _prop_id);
             if(prop.certifier_stakes[addr][prop.decision] > 0){
                 balances[addr] += cert_reward;
                 prop.certifiers_reward[addr] += cert_reward;
-                reward_pool -= cert_reward - lost_reward_pool/lost_reward_pool_split;
-                lost_reward_pool -= lost_reward_pool/lost_reward_pool_split;
+                reward_pool -= cert_reward - uint256(lost_reward_pool/lost_reward_pool_split);
+                lost_reward_pool -= uint256(lost_reward_pool/lost_reward_pool_split);
             }
         }
+        
         for(uint256 i = 0; i < prop.scoreboard.length; i++){
             address addr = prop.scoreboard[i];
             uint256 voter_reward = get_voter_reward(addr, _prop_id);
@@ -473,7 +482,18 @@ contract DeepThought /*is usingOraclize*/ {
                 reward_pool -= voter_reward;
             }
         }
-        lost_reward_pool += reward_pool;
+
+        // redistribute the stake to all voters when the outcome is "Unknown"
+        if(prop.decision == VoteOption.Unknown){
+            for(uint256 i = 0; i < prop.voters_list.length; i++){
+                balances[prop.voters_list[i]] += prop.voters_stakes[prop.voters_list[i]];
+            }
+        }
+        else{
+            lost_reward_pool += reward_pool;
+        }
+
+        
     } 
 
     // Set the decision based on the vote majority
@@ -498,15 +518,15 @@ contract DeepThought /*is usingOraclize*/ {
         for(uint256 i = 0; i < prop.T_voters.length; i++){
            voter_addr = prop.T_voters[i];
            prop.scoreboard.push(voter_addr);
-           prop.scores[voter_addr] = assign_score(_prop_id, voter_addr);
+           //prop.scores[voter_addr] = assign_score(_prop_id, voter_addr); TEST
         }
         for(uint256 j = 0; j < prop.F_voters.length; j++){
            voter_addr = prop.F_voters[j];
            prop.scoreboard.push(voter_addr);
-           prop.scores[voter_addr] = assign_score(_prop_id, voter_addr);           
+           //prop.scores[voter_addr] = assign_score(_prop_id, voter_addr); TEST
         }
 
-        //order_scoreboard(_prop_id);
+        //order_scoreboard(_prop_id); TEST
     } 
 
     // Order scoreboard to get highest scores first
@@ -554,10 +574,15 @@ contract DeepThought /*is usingOraclize*/ {
     // Calculate the vote weight of a certifier for a proposition
     function normalize_certifier_vote_weight(address _certifier, uint256 prop_id, bool _vote) internal view returns(uint256) {
         Proposition storage p = propositions[prop_id];
-        uint256 stake = p.certifier_stakes[_certifier][_vote ? VoteOption.True : VoteOption.False];
+        uint256 stake;
+        if(_vote){
+            stake = p.certifier_stakes[_certifier][VoteOption.True];
+        }else{
+            stake = p.certifier_stakes[_certifier][VoteOption.False];
+        }
+    
         uint256 reputation = reputations[_certifier];
-        return alfa * sqrt(stake) + (100 - alfa) * (stake + reputation);
-        //TODO: IS IT USEFUL?! 
+        return alfa * sqrt(stake) + (100 - alfa) * (stake + reputation); 
     }
 
     // Calculate the reward of a voter for a proposition
@@ -573,7 +598,7 @@ contract DeepThought /*is usingOraclize*/ {
         Proposition storage p = propositions[_prop_id];
         uint256 stake = p.certifier_stakes[_certifier][p.decision];
         uint256 reputation = reputations[_certifier];
-        return beta * (stake ** 2) + (100 - beta) * (stake + reputation + max_reputation) + lost_reward_pool/lost_reward_pool_split;
+        return beta * (stake ** 2) + (100 - beta) * (stake + reputation + max_reputation) + uint256(lost_reward_pool/lost_reward_pool_split);
     }
     
     // Return a random propositon for a voter
@@ -616,7 +641,8 @@ contract DeepThought /*is usingOraclize*/ {
             }
         }
         tot /= _prop.prediction_cert[_voter];
-        return 1nthRoot(tot, num, 0, 1000);
+        return random(100); //TEST
+        //return nthRoot(tot, num, 0, 1000); TEST
     }
     
     // Increment the reputation of a voter
