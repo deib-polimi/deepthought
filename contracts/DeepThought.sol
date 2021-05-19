@@ -410,7 +410,7 @@ contract DeepThought /*is usingOraclize*/ {
     // Change status of proposition Open > VotingClosed
     function close_proposition(uint256 _prop_id) internal {
         Proposition storage prop = propositions[_prop_id];
-        require(prop.status == PropositionStatus.Open);
+        require(prop.status == PropositionStatus.Open, "Should be Open");
         prop.status = PropositionStatus.VotingClose;
 
         for(uint256 i = 0; i < proposition_list.length; i++){
@@ -425,14 +425,14 @@ contract DeepThought /*is usingOraclize*/ {
     // Change status of proposition VotingClosed > RevealingClosed
     function stop_revealing_proposition(uint256 _prop_id) internal {
         Proposition storage prop = propositions[_prop_id];
-        require(prop.status == PropositionStatus.VotingClose);
+        require(prop.status == PropositionStatus.VotingClose, "Should be Reveal");
         prop.status = PropositionStatus.RevealingClose;
     }
 
     // Distribute the reputation to all the voters
     function distribute_reputation(uint256 _prop_id) internal {
         Proposition storage prop = propositions[_prop_id];
-        require(prop.status == PropositionStatus.RevealingClose);
+        require(prop.status == PropositionStatus.RevealingClose, "Should be Close");
 
         for(uint256 i = 0; i < prop.voters_list.length; i++){
             address voter_addr = prop.voters_list[i];
@@ -459,7 +459,7 @@ contract DeepThought /*is usingOraclize*/ {
     // Distribute the rewards to all the voters and certifiers
     function distribute_rewards(uint256 _prop_id) internal {
         Proposition storage prop = propositions[_prop_id];
-        require(prop.status == PropositionStatus.RevealingClose);
+        require(prop.status == PropositionStatus.RevealingClose, "Should be Close");
         uint256 reward_pool = prop.stakes_total + prop.bounty;
 
         for(uint256 i = 0; i < prop.certifiers_list.length; i++){
@@ -499,7 +499,7 @@ contract DeepThought /*is usingOraclize*/ {
     // Set the decision based on the vote majority
     function set_decision(uint256 _prop_id) internal {
         Proposition storage prop = propositions[_prop_id];
-        require(prop.status == PropositionStatus.RevealingClose);
+        require(prop.status == PropositionStatus.RevealingClose, "Should be Close");
         VoteOption voter_result = VoteOption.Unknown;
         VoteOption cert_result = VoteOption.Unknown;
         if(prop.votes[VoteOption.True] > prop.votes[VoteOption.False]) voter_result = VoteOption.True;
@@ -513,28 +513,33 @@ contract DeepThought /*is usingOraclize*/ {
     // Create the scoreboard
     function create_scoreboard(uint256 _prop_id) internal {
         Proposition storage prop = propositions[_prop_id];
-        require(prop.status == PropositionStatus.RevealingClose);
+        require(prop.status == PropositionStatus.RevealingClose, "Should be Close");
         address voter_addr;
         for(uint256 i = 0; i < prop.T_voters.length; i++){
            voter_addr = prop.T_voters[i];
-           prop.scoreboard.push(voter_addr);
-           prop.scores[voter_addr] = assign_score(_prop_id, voter_addr); 
+           prop.scores[voter_addr] = assign_score(_prop_id, voter_addr);
+           insert_scoreboard(_prop_id, voter_addr);
         }
         for(uint256 j = 0; j < prop.F_voters.length; j++){
            voter_addr = prop.F_voters[j];
-           prop.scoreboard.push(voter_addr);
-           prop.scores[voter_addr] = assign_score(_prop_id, voter_addr); 
+           prop.scores[voter_addr] = assign_score(_prop_id, voter_addr);
+           insert_scoreboard(_prop_id, voter_addr);
         }
-
-        order_scoreboard(_prop_id);
     } 
 
-    // Order scoreboard to get highest scores first
-    function order_scoreboard(uint256 _prop_id) internal{
+    // In-order voters insert inside scoreboard, from the Higher to the Lower
+    function insert_scoreboard(uint256 _prop_id, address _addr) internal{
         Proposition storage prop = propositions[_prop_id];
-        require(prop.status == PropositionStatus.RevealingClose);  
-        require(prop.decision == VoteOption.True || prop.decision == VoteOption.False || prop.decision == VoteOption.Unknown);
-        quickSort(prop.scoreboard, int(0), int(prop.scoreboard.length - 1), _prop_id);
+        address write = _addr;
+        address store;
+            for(uint j=0; j<prop.scoreboard.length; j++){
+                if( prop.scores[write] > prop.scores[prop.scoreboard[j]]){
+                    store = prop.scoreboard[j];
+                    prop.scoreboard[j] = write;
+                    write = store;
+                }
+            }
+        prop.scoreboard.push(write);
     }   
 
     // Calculate the minimum stake for a voter
@@ -615,17 +620,17 @@ contract DeepThought /*is usingOraclize*/ {
         uint info_score;
         uint q = prop.prediction_cert[_voter];
         VoteOption w = VoteOption.Unknown;
+        uint pred_mean = prediction_mean(_voter, _prop_id);
         while(w == VoteOption.Unknown)
         {
             w = prop.voters_unsealedVotes[prop.voters_list[random(prop.voters_list.length)]];
         }
         pred_score = w == VoteOption.True ? 200 * q - q ** 2 : 10000 - q ** 2;
-        uint pred_mean = prediction_mean(_voter, _prop_id);
-        info_score = pred_mean > 0? 10000 - (pred_mean - q) ** 2 : 10000 - q ** 2;
+        info_score = pred_mean > q ? 10000 - (pred_mean - q) ** 2 : 10000 - (q - pred_mean) ** 2;
         return pred_score + info_score;
     }
 
-    // Produce the aritmetic mean without the prediction of the voter itself
+    // Produce the arithmetic mean without the prediction of the voter itself (should be a geometric mean)
     function prediction_mean(address _voter, uint256 _prop_id) internal view returns(uint256){
         Proposition storage _prop = propositions[_prop_id];
         uint256 i;
@@ -684,7 +689,9 @@ contract DeepThought /*is usingOraclize*/ {
     // RIP n-rooth :(
 
     // Quicksorting scoreboard addresses comparing their scores
-    function quickSort(address[] memory _arr, int _left, int _right, uint256 _prop_id) internal{
+    // RIP quickSort :c
+
+    /*function quickSort(address[] memory _arr, int _left, int _right, uint256 _prop_id) internal{
         int i = _left;
         int j = _right;
         if(i==j) return;
@@ -704,6 +711,6 @@ contract DeepThought /*is usingOraclize*/ {
             quickSort(_arr, _left, j, _prop_id);
         if (i < _right)
             quickSort(_arr, i, _right, _prop_id);
-    }
+    }*/
 
 }

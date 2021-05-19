@@ -1,4 +1,3 @@
-
 import json
 from web3 import Web3, HTTPProvider
 
@@ -7,7 +6,7 @@ ganache_blockchain_address = 'http://127.0.0.1:7545'
 # Path to the compiled contract JSON file
 compiled_contract_path = 'build/contracts/DeepThought.json'
 # Deployed contract address (see `migrate` command output: `contract address`)
-deployed_contract_address = '0xB893e667D90a09D658ce4e1e4f68222F9FC9778F'
+deployed_contract_address = '0xefF76864dc4AeFBB90B05EEb1EEf3612f6d9Fc85'
 
 def init():
 
