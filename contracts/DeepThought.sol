@@ -462,34 +462,38 @@ contract DeepThought /*is usingOraclize*/ {
         require(prop.status == PropositionStatus.RevealingClose, "Should be Close");
         uint256 reward_pool = prop.stakes_total + prop.bounty;
 
-        for(uint256 i = 0; i < prop.certifiers_list.length; i++){
-            address addr = prop.certifiers_list[i];
-            uint256 cert_reward = get_certifier_reward(addr, _prop_id);
-            if(prop.certifier_stakes[addr][prop.decision] > 0){
-                balances[addr] += cert_reward;
-                prop.certifiers_reward[addr] += cert_reward;
-                reward_pool -= cert_reward - uint256(lost_reward_pool/lost_reward_pool_split);
-                lost_reward_pool -= uint256(lost_reward_pool/lost_reward_pool_split);
-            }
-        }
-        
-        for(uint256 i = 0; i < prop.scoreboard.length; i++){
-            address addr = prop.scoreboard[i];
-            uint256 voter_reward = get_voter_reward(addr, _prop_id);
-            if (reward_pool - voter_reward > 0){
-                balances[addr] += voter_reward;
-                prop.voters_reward[addr] += voter_reward;
-                reward_pool -= voter_reward;
-            }
-        }
-
-        // redistribute the stake to all voters when the outcome is "Unknown"
+        // redistribute the bounty to the submitter and the stake to all voters when the outcome is "Unknown"
+        // store the stakes submitted by certifiers
         if(prop.decision == VoteOption.Unknown){
+            balances[prop.submitter] += bounty;
             for(uint256 i = 0; i < prop.voters_list.length; i++){
                 balances[prop.voters_list[i]] += prop.voters_stakes[prop.voters_list[i]];
             }
+            for(uint256 i = 0; i < prop.certifiers_list.length; i++){
+                lost_reward_pool += prop.certifier_stakes[prop.certifiers_list[i]][VoteOption.True] + prop.certifier_stakes[prop.certifiers_list[i]][VoteOption.False];
+            }
         }
         else{
+            for(uint256 i = 0; i < prop.certifiers_list.length; i++){
+                address addr = prop.certifiers_list[i];
+                uint256 cert_reward = get_certifier_reward(addr, _prop_id);
+                if(prop.certifier_stakes[addr][prop.decision] > 0){
+                    balances[addr] += cert_reward;
+                    prop.certifiers_reward[addr] += cert_reward;
+                    reward_pool -= cert_reward - uint256(lost_reward_pool/lost_reward_pool_split);
+                    lost_reward_pool -= uint256(lost_reward_pool/lost_reward_pool_split);
+                }
+            }
+
+            for(uint256 i = 0; i < prop.scoreboard.length; i++){
+                address addr = prop.scoreboard[i];
+                uint256 voter_reward = get_voter_reward(addr, _prop_id);
+                if (reward_pool - voter_reward > 0){
+                    balances[addr] += voter_reward;
+                    prop.voters_reward[addr] += voter_reward;
+                    reward_pool -= voter_reward;
+                }else break;
+            }
             lost_reward_pool += reward_pool;
         }
 
