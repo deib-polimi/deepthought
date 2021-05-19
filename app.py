@@ -74,7 +74,7 @@ def main():
                         min_stake_certifier = str(int(contract.functions.get_min_stake_certifier().call()) * currencyNormalizer)
                         max_stake_certifier = str(int(contract.functions.get_max_stake_certifier().call()) * currencyNormalizer)
 
-                        print('\nVOTING REQUEST')
+                        print('\nCERTIFICATION REQUEST')
                         stake = int(input('stake (wei) [' + min_stake_certifier + ' wei, ' + max_stake_certifier + ' wei]: '))
 
                         contract.functions.certification_request(int(stake/currencyNormalizer)).transact()
@@ -92,7 +92,11 @@ def main():
                         prop_id = int(input('\nWhich proposition do you want to certify?\nProposition id: '))
 
                         #TODO : if we make hashed the certifier vote we have to change the following code block
-                        vote = bool(input('Your vote (True/False): '))
+                        while insert != 'True' and insert != 'False':
+                            insert = input('Vote (True/False): ')
+
+                        if insert == 'True': vote = True
+                        elif insert == 'False': vote = False
 
                         contract.functions.certify_proposition(prop_id, vote).transact()
                         print("Nice! your certification has been recorded")
@@ -139,7 +143,13 @@ def main():
                         print('\nYou can vote the proposition ' + str(prop_id) + ' (content: "' + prop_content + '")')
 
                         print("\nVOTE THE PROPOSITION")
-                        vote = bool(input('Vote (True/False): '))
+                        
+                        while insert != 'True' and insert != 'False':
+                            insert = input('Vote (True/False): ')
+
+                        if insert == 'True': vote = True
+                        elif insert == 'False': vote = False
+
                         prediction = int(input('Prediction [0 %,100 %] (your prediction on the proposition truthfulness): '))
                         salt = input('Insert your salt (REMEMBER IT!): ')
                             

@@ -14,7 +14,7 @@ contract DeepThought /*is usingOraclize*/ {
     uint64 max_voters;
     
     // Minimum value of the bounty
-    uint64 min_bounty;
+    uint256 min_bounty;
     
     // Pool of money of Unknown propositions
     uint256 lost_reward_pool;
@@ -146,13 +146,13 @@ contract DeepThought /*is usingOraclize*/ {
     
     constructor(){
         // Initialize the parameters of the oracle
-        max_voters = 3;
+        max_voters = 1;
         
         // the max reputation reachable for voters
         max_reputation = 100;
         
         // the minimum bounty is 100 times the max bid of certification (with max_rep = 100 is about 2 * 10**16 wei ~ 0.02 ETH ~ 50$)
-        min_bounty = uint64(get_max_certifing_stake() * 50);
+        min_bounty = compute_min_bounty() * (10 ** 6);
         
         lost_reward_pool = 0;
 
@@ -324,13 +324,14 @@ contract DeepThought /*is usingOraclize*/ {
         prop.certifiers_list.push(msg.sender);
         uint256 stake = ask_to_certify_stakes[msg.sender];
         ask_to_certify_stakes[msg.sender] = 0;
-        prop.certifier_stakes[msg.sender][_vote? VoteOption.True : VoteOption.False] += stake;
         prop.stakes_total += stake;
         if(_vote){
             prop.certificates[VoteOption.True] += normalize_certifier_vote_weight(msg.sender, _prop_id, _vote);
+            prop.certifier_stakes[msg.sender][VoteOption.True] += stake;
             prop.T_certifiers.push(msg.sender);
         }else{
             prop.certificates[VoteOption.False] += normalize_certifier_vote_weight(msg.sender, _prop_id, _vote);
+            prop.certifier_stakes[msg.sender][VoteOption.False] += stake;
             prop.F_certifiers.push(msg.sender);
         }
 
@@ -397,13 +398,13 @@ contract DeepThought /*is usingOraclize*/ {
         }
     }
  
-    // ### INTERNAL FUNCTIONS 
+    // ### INTERNAL FUNCTIONS
 
     function elaborate_result_proposition(uint256 _prop_id) internal {
         stop_revealing_proposition(_prop_id);
         set_decision(_prop_id);
         create_scoreboard(_prop_id);
-        distribute_rewards(_prop_id); 
+        distribute_rewards(_prop_id);
         distribute_reputation(_prop_id);
     }
 
@@ -465,7 +466,7 @@ contract DeepThought /*is usingOraclize*/ {
         // redistribute the bounty to the submitter and the stake to all voters when the outcome is "Unknown"
         // store the stakes submitted by certifiers
         if(prop.decision == VoteOption.Unknown){
-            balances[prop.submitter] += bounty;
+            balances[prop.submitter] += prop.bounty;
             for(uint256 i = 0; i < prop.voters_list.length; i++){
                 balances[prop.voters_list[i]] += prop.voters_stakes[prop.voters_list[i]];
             }
@@ -478,10 +479,10 @@ contract DeepThought /*is usingOraclize*/ {
                 address addr = prop.certifiers_list[i];
                 uint256 cert_reward = get_certifier_reward(addr, _prop_id);
                 if(prop.certifier_stakes[addr][prop.decision] > 0){
-                    balances[addr] += cert_reward;
-                    prop.certifiers_reward[addr] += cert_reward;
-                    reward_pool -= cert_reward - uint256(lost_reward_pool/lost_reward_pool_split);
-                    lost_reward_pool -= uint256(lost_reward_pool/lost_reward_pool_split);
+                    balances[addr] += cert_reward + lost_reward_pool/lost_reward_pool_split;
+                    prop.certifiers_reward[addr] += cert_reward + lost_reward_pool/lost_reward_pool_split;
+                    reward_pool -= cert_reward;
+                    lost_reward_pool -= lost_reward_pool/lost_reward_pool_split;
                 }
             }
 
@@ -563,13 +564,13 @@ contract DeepThought /*is usingOraclize*/ {
     
     // Calculate the maximum stake for a certifier
     function get_max_certifing_stake() internal view returns (uint256) {
-        return stake_function(2 * max_reputation * 10);
+        return stake_function(2 * max_reputation);
     }
     
     // Function used to calculate all the stake boundaries
     // It represents a parabola with V=(1,1)
     function stake_function(uint256 _rep) internal pure returns (uint256){
-        return 100 * (_rep ** 2 - 2 * (_rep - 1));
+        return (_rep ** 2 - 2 * (_rep - 1));
     }
     
     // Calculate the vote weight of a voter for a proposition
@@ -599,7 +600,7 @@ contract DeepThought /*is usingOraclize*/ {
         Proposition storage p = propositions[prop_id];
         uint256 stake = p.voters_stakes[_voter];
         uint256 reputation = reputations[_voter];
-        return beta * (stake ** 2) + (100 - beta) * (stake + reputation);
+        return beta * (stake ** 2)/100 + (100 - beta) * (stake + reputation)/100;
     }
 
     // Calculate the reward of a certifier for a proposition
@@ -607,7 +608,13 @@ contract DeepThought /*is usingOraclize*/ {
         Proposition storage p = propositions[_prop_id];
         uint256 stake = p.certifier_stakes[_certifier][p.decision];
         uint256 reputation = reputations[_certifier];
-        return beta * (stake ** 2) + (100 - beta) * (stake + reputation + max_reputation) + uint256(lost_reward_pool/lost_reward_pool_split);
+        return beta * (stake ** 2)/100 + (100 - beta) * (stake + reputation + max_reputation)/100;
+    }
+
+    function compute_min_bounty() internal view returns(uint256){
+        uint256 stake = get_max_certifing_stake();
+        uint256 reputation = max_reputation;
+        return beta * (stake ** 2)/100 + (100 - beta) * (stake + reputation + max_reputation)/100;
     }
     
     // Return a random propositon for a voter
@@ -689,32 +696,5 @@ contract DeepThought /*is usingOraclize*/ {
             z = (x / z + z) / 2;
         }
     }
-    
-    // RIP n-rooth :(
-
-    // Quicksorting scoreboard addresses comparing their scores
-    // RIP quickSort :c
-
-    /*function quickSort(address[] memory _arr, int _left, int _right, uint256 _prop_id) internal{
-        int i = _left;
-        int j = _right;
-        if(i==j) return;
-        Proposition storage prop = propositions[_prop_id];
-        address pivot = _arr[uint256(_left + (_right - _left) / 2)];
-        uint256 pivot_score = prop.scores[pivot];
-        while (i <= j) {
-            while (prop.scores[_arr[uint256(i)]] < pivot_score) i++;
-            while (pivot_score < prop.scores[_arr[uint256(j)]]) j--;
-            if (i <= j) {
-                (_arr[uint256(i)], _arr[uint256(j)]) = (_arr[uint256(j)], _arr[uint256(i)]);
-                i++;
-                j--;
-            }
-        }
-        if (_left < j)
-            quickSort(_arr, _left, j, _prop_id);
-        if (i < _right)
-            quickSort(_arr, i, _right, _prop_id);
-    }*/
 
 }
