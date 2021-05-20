@@ -9,9 +9,11 @@ pragma solidity >=0.8.0 <0.9.0;
 contract DeepThought /*is usingOraclize*/ {
     
     // ### PARAMETERS OF THE ORACLE
+
+    uint256 user_num;
     
     // Number of votes required to close a proposition
-    uint64 max_voters;
+    uint256 max_voters;
     
     // Minimum value of the bounty
     uint256 min_bounty;
@@ -23,13 +25,15 @@ contract DeepThought /*is usingOraclize*/ {
     uint256 lost_reward_pool_split;
     
     // Maximum reputation value for a voter
-    uint16 max_reputation;
+    uint256 max_reputation;
+
+    uint256 current_max_reputation;
 
     // Parameter for vote weight calculation
-    uint16 alfa;
+    uint256 alfa;
 
     // Parameter for reward calculation
-    uint16 beta;
+    uint256 beta;
 
     // ### GLOBAL VARIABLES
 
@@ -146,13 +150,12 @@ contract DeepThought /*is usingOraclize*/ {
     
     constructor(){
         // Initialize the parameters of the oracle
-        max_voters = 1;
+        max_voters = 3;
         
         // the max reputation reachable for voters
         max_reputation = 100;
         
-        // the minimum bounty is 100 times the max bid of certification (with max_rep = 100 is about 2 * 10**16 wei ~ 0.02 ETH ~ 50$)
-        min_bounty = 2 * compute_min_bounty() * (10 ** 4);
+        min_bounty = compute_min_bounty() * 2;
         
         lost_reward_pool = 0;
 
@@ -161,6 +164,8 @@ contract DeepThought /*is usingOraclize*/ {
         alfa = 70; // %
         
         beta = 30; // %
+
+        current_max_reputation = 1;
 
     }
 
@@ -285,6 +290,10 @@ contract DeepThought /*is usingOraclize*/ {
         require(balances[msg.sender] == 0, "Already subscribed!");
         balances[msg.sender] = msg.sender.balance;
         reputations[msg.sender] = 1;
+
+        user_num++;
+        
+        min_bounty = compute_min_bounty() * (2 + user_num/(max_voters * 2));
     }
     
     // Submit a new proposition
@@ -564,7 +573,7 @@ contract DeepThought /*is usingOraclize*/ {
     
     // Calculate the maximum stake for a certifier
     function get_max_certifing_stake() internal view returns (uint256) {
-        return stake_function(10 ** 4 * (max_reputation));
+        return stake_function(10 ** 4 *(max_reputation));
     }
     
     // Function used to calculate all the stake boundaries
@@ -611,15 +620,18 @@ contract DeepThought /*is usingOraclize*/ {
 
         //linear reward -> max=stake*2
 
-        return ((beta) * stake * 2 + (100-beta) * (reputation + max_reputation)/100 * stake)/100;
+        return beta * stake * 2 + (100-beta) * (reputation + max_reputation) * stake/100;
 
         // quadratic reward
         //return (beta * (stake ** 2) + (100 - beta) * (stake + reputation + max_reputation))/100;
     }
 
     function compute_min_bounty() internal view returns(uint256){
-        uint256 stake = get_max_voting_stake();
-        return stake**2;
+        uint256 certifier_max_stake = get_max_certifing_stake();
+        uint256 voter_max_stake = get_max_voting_stake();
+        uint256 min_bounty_cert = beta * certifier_max_stake * 2 + (100-beta) * (current_max_reputation + max_reputation) * certifier_max_stake/100;
+        uint256 min_bounty_voter = (beta * (voter_max_stake ** 2) + (100 - beta) * (voter_max_stake + current_max_reputation))/100;
+        return min_bounty_cert + min_bounty_voter;
     }
     
     // Return a random propositon for a voter
@@ -673,6 +685,10 @@ contract DeepThought /*is usingOraclize*/ {
         uint256 rep = reputations[_voter];
         if (rep < max_reputation) {
             reputations[_voter] += 1;
+        }
+
+        if(rep > current_max_reputation){
+            current_max_reputation = rep;
         }
     }
 

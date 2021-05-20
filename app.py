@@ -3,7 +3,11 @@ import sys
 
 import setup
 
-# Constant to normalize the ETH amount (in the smart contract we divide the account bilance with this constant)
+def get_info(web3, contract):
+
+    print('\nYour account info: ')
+    print('Balance: ' + str(web3.fromWei(int(contract.functions.get_balance().call()), 'ether')) + ' ETH')
+    print('Reputation: ' + str(contract.functions.get_reputation().call()))
 
 def main():
 
@@ -16,9 +20,8 @@ def main():
     # Set the default account (so we don't need to set the "from" for every transaction call)
     index = int(input('insert your account index: '))
     web3.eth.defaultAccount = web3.eth.accounts[index]
-    print('Your account info: ')
-    print('Balance: ' + str(web3.fromWei(int(contract.functions.get_balance().call()), 'ether')) + ' ETH')
-    print('Reputation: ' + str(contract.functions.get_reputation().call()))
+
+    get_info(web3,contract)
 
     # CLI
 
@@ -32,9 +35,7 @@ def main():
 
         elif insert == 3: #INFO
 
-            print('\nYour account info: ')
-            print('Balance: ' + str(web3.fromWei(int(contract.functions.get_balance().call()), 'ether')) + ' ETH')
-            print('Reputation: ' + str(contract.functions.get_reputation().call()))
+            get_info(web3,contract)
 
         elif insert == 1: #SUBSCRIBE
 
@@ -59,10 +60,7 @@ def main():
 
                 elif insert == 4: #INFO
                     
-                    print('\nYour account info: ')
-                    print('Balance: ' + str(web3.fromWei(int(contract.functions.get_balance().call()), 'ether')))
-                    print('Reputation: ' + str(contract.functions.get_reputation().call()))
-
+                    get_info(web3,contract)
 
                 elif insert == 1: #CERTIFY
 
@@ -70,13 +68,13 @@ def main():
 
                     if insert == 1: #CERTIFICATION REQUEST
 
-                        min_stake_certifier = str(int(contract.functions.get_min_stake_certifier().call()))
-                        max_stake_certifier = str(int(contract.functions.get_max_stake_certifier().call()))
+                        min_stake_certifier = str(contract.functions.get_min_stake_certifier().call())
+                        max_stake_certifier = str(contract.functions.get_max_stake_certifier().call())
 
                         print('\nCERTIFICATION REQUEST')
                         stake = int(input('stake (wei) [' + min_stake_certifier + ' wei, ' + max_stake_certifier + ' wei]: '))
 
-                        contract.functions.certification_request(int(stake)).transact()
+                        contract.functions.certification_request(stake).transact()
 
                         print('\nPROPOSITION YOU CAN CERTIFY\nProposition id : content')
 
@@ -128,8 +126,8 @@ def main():
 
                     if insert == 1: #VOTE REQUEST
 
-                        min_stake_voter = str(int(contract.functions.get_min_stake_voter().call()))
-                        max_stake_voter = str(int(contract.functions.get_max_stake_voter().call()))
+                        min_stake_voter = str(contract.functions.get_min_stake_voter().call())
+                        max_stake_voter = str(contract.functions.get_max_stake_voter().call())
 
                         print('\nVOTING REQUEST')
                         stake = int(input('stake (wei) [' + min_stake_voter + ' wei, ' + max_stake_voter + ' wei]: '))
@@ -220,17 +218,6 @@ def main():
                                 out += ' (result: ' + result + ')'
 
                             print(out)
-
-                    
-
-            '''
-            # Debug utilities
-            # Call contract function (this is not persisted to the blockchain)
-            print('Balance: ' + str(web3.fromWei(int(contract.functions.get_balance().call()), 'ether')))
-
-            # Call contract function (this is not persisted to the blockchain)
-            print('Reputation' + str(contract.functions.get_reputation().call()))
-            '''
 
 
 if __name__ == "__main__":
