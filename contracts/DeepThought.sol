@@ -152,7 +152,7 @@ contract DeepThought /*is usingOraclize*/ {
         max_reputation = 100;
         
         // the minimum bounty is 100 times the max bid of certification (with max_rep = 100 is about 2 * 10**16 wei ~ 0.02 ETH ~ 50$)
-        min_bounty = compute_min_bounty() * (10 ** 6);
+        min_bounty = 2 * compute_min_bounty() * (10 ** 4);
         
         lost_reward_pool = 0;
 
@@ -283,7 +283,7 @@ contract DeepThought /*is usingOraclize*/ {
     // Subscribe to the service and put founds in it
     function subscribe() public{
         require(balances[msg.sender] == 0, "Already subscribed!");
-        balances[msg.sender] = msg.sender.balance/(10 ** 6);
+        balances[msg.sender] = msg.sender.balance;
         reputations[msg.sender] = 1;
     }
     
@@ -559,18 +559,18 @@ contract DeepThought /*is usingOraclize*/ {
     
     // Calculate the minimum stake for a certifier
     function get_min_certifing_stake(address _certifier) internal view returns (uint256) {
-        return stake_function(reputations[_certifier] + max_reputation);
+        return stake_function(10 ** 3 *(reputations[_certifier] + max_reputation));
     }
     
     // Calculate the maximum stake for a certifier
     function get_max_certifing_stake() internal view returns (uint256) {
-        return stake_function(2 * max_reputation);
+        return stake_function(10 ** 4 * (max_reputation));
     }
     
     // Function used to calculate all the stake boundaries
     // It represents a parabola with V=(1,1)
     function stake_function(uint256 _rep) internal pure returns (uint256){
-        return (_rep ** 2 - 2 * (_rep - 1));
+        return 10 ** 2 * (_rep ** 2 - 2 * (_rep - 1));
     }
     
     // Calculate the vote weight of a voter for a proposition
@@ -600,7 +600,7 @@ contract DeepThought /*is usingOraclize*/ {
         Proposition storage p = propositions[prop_id];
         uint256 stake = p.voters_stakes[_voter];
         uint256 reputation = reputations[_voter];
-        return beta * (stake ** 2)/100 + (100 - beta) * (stake + reputation)/100;
+        return (beta * (stake ** 2) + (100 - beta) * (stake + reputation))/100;
     }
 
     // Calculate the reward of a certifier for a proposition
@@ -608,13 +608,18 @@ contract DeepThought /*is usingOraclize*/ {
         Proposition storage p = propositions[_prop_id];
         uint256 stake = p.certifier_stakes[_certifier][p.decision];
         uint256 reputation = reputations[_certifier];
-        return beta * (stake ** 2)/100 + (100 - beta) * (stake + reputation + max_reputation)/100;
+
+        //linear reward -> max=stake*2
+
+        return ((beta) * stake * 2 + (100-beta) * (reputation + max_reputation)/100 * stake)/100;
+
+        // quadratic reward
+        //return (beta * (stake ** 2) + (100 - beta) * (stake + reputation + max_reputation))/100;
     }
 
     function compute_min_bounty() internal view returns(uint256){
-        uint256 stake = get_max_certifing_stake();
-        uint256 reputation = max_reputation;
-        return beta * (stake ** 2)/100 + (100 - beta) * (stake + reputation + max_reputation)/100;
+        uint256 stake = get_max_voting_stake();
+        return stake**2;
     }
     
     // Return a random propositon for a voter

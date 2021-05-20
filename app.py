@@ -4,7 +4,6 @@ import sys
 import setup
 
 # Constant to normalize the ETH amount (in the smart contract we divide the account bilance with this constant)
-currencyNormalizer = 10 ** 6
 
 def main():
 
@@ -18,7 +17,7 @@ def main():
     index = int(input('insert your account index: '))
     web3.eth.defaultAccount = web3.eth.accounts[index]
     print('Your account info: ')
-    print('Balance: ' + str(web3.fromWei(int(contract.functions.get_balance().call()) * currencyNormalizer, 'ether')) + ' ETH')
+    print('Balance: ' + str(web3.fromWei(int(contract.functions.get_balance().call()), 'ether')) + ' ETH')
     print('Reputation: ' + str(contract.functions.get_reputation().call()))
 
     # CLI
@@ -34,7 +33,7 @@ def main():
         elif insert == 3: #INFO
 
             print('\nYour account info: ')
-            print('Balance: ' + str(web3.fromWei(int(contract.functions.get_balance().call()) * currencyNormalizer, 'ether')) + ' ETH')
+            print('Balance: ' + str(web3.fromWei(int(contract.functions.get_balance().call()), 'ether')) + ' ETH')
             print('Reputation: ' + str(contract.functions.get_reputation().call()))
 
         elif insert == 1: #SUBSCRIBE
@@ -61,7 +60,7 @@ def main():
                 elif insert == 4: #INFO
                     
                     print('\nYour account info: ')
-                    print('Balance: ' + str(web3.fromWei(int(contract.functions.get_balance().call()) * currencyNormalizer, 'ether')))
+                    print('Balance: ' + str(web3.fromWei(int(contract.functions.get_balance().call()), 'ether')))
                     print('Reputation: ' + str(contract.functions.get_reputation().call()))
 
 
@@ -71,13 +70,13 @@ def main():
 
                     if insert == 1: #CERTIFICATION REQUEST
 
-                        min_stake_certifier = str(int(contract.functions.get_min_stake_certifier().call()) * currencyNormalizer)
-                        max_stake_certifier = str(int(contract.functions.get_max_stake_certifier().call()) * currencyNormalizer)
+                        min_stake_certifier = str(int(contract.functions.get_min_stake_certifier().call()))
+                        max_stake_certifier = str(int(contract.functions.get_max_stake_certifier().call()))
 
                         print('\nCERTIFICATION REQUEST')
                         stake = int(input('stake (wei) [' + min_stake_certifier + ' wei, ' + max_stake_certifier + ' wei]: '))
 
-                        contract.functions.certification_request(int(stake/currencyNormalizer)).transact()
+                        contract.functions.certification_request(int(stake)).transact()
 
                         print('\nPROPOSITION YOU CAN CERTIFY\nProposition id : content')
 
@@ -114,7 +113,7 @@ def main():
                             out = str(prop_id) + ' -> ' + status
                             if (status.startswith('Close')):
                                 result = str(contract.functions.get_outcome(prop_id).call(),'utf-8')
-                                earned = str(int(contract.functions.get_reward_certifier_by_prop_id(prop_id).call()) * currencyNormalizer)
+                                earned = str(int(contract.functions.get_reward_certifier_by_prop_id(prop_id).call()))
                                 out += ' (result: ' + result + '), (earned: ' + earned + ' wei)'
 
                             print(out)
@@ -129,13 +128,13 @@ def main():
 
                     if insert == 1: #VOTE REQUEST
 
-                        min_stake_voter = str(int(contract.functions.get_min_stake_voter().call()) * currencyNormalizer)
-                        max_stake_voter = str(int(contract.functions.get_max_stake_voter().call()) * currencyNormalizer)
+                        min_stake_voter = str(int(contract.functions.get_min_stake_voter().call()))
+                        max_stake_voter = str(int(contract.functions.get_max_stake_voter().call()))
 
                         print('\nVOTING REQUEST')
                         stake = int(input('stake (wei) [' + min_stake_voter + ' wei, ' + max_stake_voter + ' wei]: '))
 
-                        tx_hash = contract.functions.voting_request(int(stake/currencyNormalizer)).transact()
+                        tx_hash = contract.functions.voting_request(stake).transact()
 
                         # receive the prop_id from a transaction event
                         prop_id = int(web3.eth.getTransactionReceipt(tx_hash)['logs'][0]['data'],16)
@@ -173,7 +172,7 @@ def main():
                             out = str(prop_id) + ' -> ' + status
                             if (status.startswith('Close')):
                                 result = str(contract.functions.get_outcome(prop_id).call(),'utf-8')
-                                earned = str(int(contract.functions.get_reward_voter_by_prop_id(prop_id).call()) * currencyNormalizer)
+                                earned = str(int(contract.functions.get_reward_voter_by_prop_id(prop_id).call()))
                                 out += ' (result: ' + result + '), (earned: ' + earned + ' wei)'
 
                             print(out)
@@ -197,14 +196,14 @@ def main():
 
                     if insert == 1: #SUBMITTING
 
-                        min_bounty = str(web3.fromWei(int(contract.functions.get_min_bounty().call()) * currencyNormalizer, 'ether'))
+                        min_bounty = str(web3.fromWei(int(contract.functions.get_min_bounty().call()), 'ether'))
 
                         print("\nSUBMIT A PROPOSITION")
                         prop_id = int(input('proposition id: '))
                         prop_content = input('proposition content: ')
                         bounty = float(input('bounty (ETH) [' + min_bounty + ' ETH, your balance]: '))
 
-                        contract.functions.submit_proposition(prop_id, bytes(prop_content, 'utf-8'), int(bounty * (10 ** 18)/currencyNormalizer)).transact()
+                        contract.functions.submit_proposition(prop_id, bytes(prop_content, 'utf-8'), int(bounty * (10 ** 18))).transact()
                     
                     elif insert == 2: #SUBMITTED STATE
 
@@ -227,7 +226,7 @@ def main():
             '''
             # Debug utilities
             # Call contract function (this is not persisted to the blockchain)
-            print('Balance: ' + str(web3.fromWei(int(contract.functions.get_balance().call()) * currencyNormalizer, 'ether')))
+            print('Balance: ' + str(web3.fromWei(int(contract.functions.get_balance().call()), 'ether')))
 
             # Call contract function (this is not persisted to the blockchain)
             print('Reputation' + str(contract.functions.get_reputation().call()))
