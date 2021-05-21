@@ -112,8 +112,8 @@ def main():
                             out = str(prop_id) + ' -> ' + status
                             if (status.startswith('Close')):
                                 result = str(contract.functions.get_outcome(prop_id).call(),'utf-8')
-                                earned = str(int(contract.functions.get_reward_certifier_by_prop_id(prop_id).call()))
-                                out += ' (result: ' + result + '), (earned: ' + earned + ' wei)'
+                                earned = str(web3.fromWei(contract.functions.get_reward_certifier_by_prop_id(prop_id).call(), 'ether'))
+                                out += ' (result: ' + result + '), (earned: ' + earned + ' ETH)'
 
                             print(out)
 
