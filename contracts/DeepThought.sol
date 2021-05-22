@@ -7,7 +7,7 @@ pragma solidity >=0.8.0 <0.9.0;
  */
 contract DeepThought /*is usingOraclize*/ {
     
-    // ### PARAMETERS OF THE ORACLE
+    // ######################################################################### PARAMETERS OF THE ORACLE
 
     // Number of users subscribed in the oracle
     uint256 user_num;
@@ -15,7 +15,7 @@ contract DeepThought /*is usingOraclize*/ {
     // The progressive number used to set the min_bounty
     uint256 potential_cert_num;
     
-    // Number of votes required to close a proposition
+    // Number of vote required to close a proposition
     uint256 max_voters;
     
     // Minimum value of the bounty
@@ -27,7 +27,7 @@ contract DeepThought /*is usingOraclize*/ {
     // Minimum value of the bounty for voters
     uint256 min_bounty_voters;
     
-    // Pool of money of Unknown propositions
+    // Pool of money of Unknown proposition
     uint256 lost_reward_pool;
     
     // Maximum reputation value for a voter
@@ -50,28 +50,28 @@ contract DeepThought /*is usingOraclize*/ {
     // List of closed/revealing prop_id
     uint256[] closed_revealing_propositions_list;
 
-    // Map of all the prop_id > propositions
-    mapping (uint256 => Proposition) propositions;
+    // Map of all the prop_id > proposition
+    mapping (uint256 => Proposition) proposition;
 
-    // Balances of each address
-    mapping (address => uint256) balances;
+    // balance of each address
+    mapping (address => uint256) balance;
 
     // Reputation of each address
-    mapping (address => uint256) reputations;
+    mapping (address => uint256) reputation;
 
     // Voter > prop_id > stake to check if he staked something so he can see which proposition he was assign to  
-    mapping (address => mapping(uint256 => uint256)) ask_to_vote_stakes;
+    mapping (address => mapping(uint256 => uint256)) ask_to_vote_stake;
     
     // Certifier > stake to check if he staked something so he can see the proposition list
-    mapping (address => uint256) ask_to_certify_stakes;
+    mapping (address => uint256) ask_to_certify_stake;
 
-    // Voter > list of voted propositions
+    // Voter > list of voted proposition
     mapping (address => uint256[]) voted_propositions;
 
-    // Voter > list of certified propositions
+    // Voter > list of certified proposition
     mapping (address => uint256[]) certified_propositions;
 
-    // Voter > list of submitted propositions
+    // Voter > list of submitted proposition
     mapping (address => uint256[]) submitted_propositions;
 
     // ### STRUCTURES
@@ -102,32 +102,32 @@ contract DeepThought /*is usingOraclize*/ {
         // Total certifications stake
         uint256 certifiers_stake_pool;
 
-        //Total votes stake
+        //Total vote stake
         uint256 voters_stake_pool;
 
         // voter > reward earned with this proposition
-        mapping (address => uint256) voters_earned_reward;
+        mapping (address => uint256) voter_earned_reward;
 
         // certifier > reward earned with this proposition
-        mapping (address => uint256) certifiers_earned_reward;
+        mapping (address => uint256) certifier_earned_reward;
 
         // The status of the proposition Open > votingClosed > RevealClosed
         PropositionStatus status;
 
         // Decided outcome
-        VoteOption decision;
+        VoteOption outcome;
 
         // Total voting value for each option
-        mapping (VoteOption => uint256) votes;
+        mapping (VoteOption => uint256) vote;
         
         // Total certifing value for each option
-        mapping (VoteOption => uint256) certificates;
+        mapping (VoteOption => uint256) certificate;
 
         // List of the addresses who certified
         address[] certifiers_list;
         
         // Certifiers vote and stake (no need to divide it in multiple maps like for the voters since the vote is not sealed)
-        mapping (address => mapping (VoteOption => uint256)) certifier_stakes;
+        mapping (address => mapping (VoteOption => uint256)) certifier_stake;
 
         // List of the addresses who voted
         address[] voters_list;
@@ -136,19 +136,19 @@ contract DeepThought /*is usingOraclize*/ {
         mapping(address => uint256) prediction_cert;
         
         // Voters stake
-        mapping(address => uint256) voters_stakes;
+        mapping(address => uint256) voters_stake;
 
         // Voters sealed vote
-        mapping(address => bytes32) voters_sealedVotes;
+        mapping(address => bytes32) voters_sealedVote;
 
         // Voters unsealed vote
-        mapping(address => VoteOption) voters_unsealedVotes;
+        mapping(address => VoteOption) voters_unsealedVote;
 
         // Scoreboard: importance order
         address[] scoreboard;
         
         // Score for each voter
-        mapping(address => uint256) scores;
+        mapping(address => uint256) score;
 
         // Voters submitting vote T
         address[] T_voters;
@@ -163,12 +163,12 @@ contract DeepThought /*is usingOraclize*/ {
         address[] F_certifiers;
     }
 
-    // ### EVENTS
+    // ######################################################################### EVENTS
 
     // Event to return the prop_id after the voting transaction 
     event return_id(uint256 prop_id);
 
-    // ### CONSTRUCTORS
+    // ######################################################################### CONSTRUCTORS
     
     constructor(){
         max_voters = 2;
@@ -193,16 +193,16 @@ contract DeepThought /*is usingOraclize*/ {
     // VOTER: subscribe > voting_request > vote > [wait for all to vote] > reveal_sealed_vote > [get the rewards when propositon is closed]
     // CERTIFIER: subscribe > certification_request > show_propositions > certify_proposition > [get the rewards when propositon is closed]
 
-    // ### OUT FUNCTIONS
+    // ######################################################################### OUT FUNCTIONS
 
     // ### Getters
 
     function get_balance() public view returns(uint256){
-        return balances[msg.sender];
+        return balance[msg.sender];
     }
 
     function get_reputation() public view returns(uint256){
-        return reputations[msg.sender];
+        return reputation[msg.sender];
     }
 
     function get_min_bounty() public view returns(uint256){
@@ -210,36 +210,34 @@ contract DeepThought /*is usingOraclize*/ {
     }
 
     function get_min_stake_voter() public view returns (uint256){
-        return get_min_voting_stake(msg.sender);
+        return compute_min_voting_stake(msg.sender);
     }
 
     function get_max_stake_voter() public view returns (uint256){
-        return get_max_voting_stake();
+        return compute_max_voting_stake();
     }
 
     function get_min_stake_certifier() public view returns (uint256){
-        return get_min_certifing_stake(msg.sender);
+        return compute_min_certifing_stake(msg.sender);
     }
 
     function get_max_stake_certifier() public view returns (uint256){
-        return get_max_certifing_stake();
+        return compute_max_certifing_stake();
     }
 
-
-    // A certifier who staked can see all the propositions
-    function get_max_number_of_propositions() public view returns (uint256){
-        require (ask_to_certify_stakes[msg.sender] > 0, "Not a certifier! Make a request");
+    function get_number_propositions() public view returns (uint256){
+        require (ask_to_certify_stake[msg.sender] > 0, "Not a certifier! Make a request");
         return propositions_list.length;
     }
 
-    function show_propositions(uint256 _i) public view returns (uint256){
-        require (ask_to_certify_stakes[msg.sender] > 0, "Not a certifier! Make a request");
+    function get_prop_id_by_index(uint256 _i) public view returns (uint256){
+        require (ask_to_certify_stake[msg.sender] > 0, "Not a certifier! Make a request");
         require (_i < propositions_list.length, "Out of bound");
         return propositions_list[_i];
     }
 
-    function get_prop_content(uint256 _prop_id) public view returns (bytes32){
-        return propositions[_prop_id].content;
+    function get_prop_content_by_prop_id(uint256 _prop_id) public view returns (bytes32){
+        return proposition[_prop_id].content;
     }
 
     function get_number_voted_propositions() public view returns (uint256){
@@ -267,11 +265,11 @@ contract DeepThought /*is usingOraclize*/ {
     }
 
     function get_prop_state(uint256 _prop_id) public view returns (bytes32){    
-        if (propositions[_prop_id].status == PropositionStatus.Open){
+        if (proposition[_prop_id].status == PropositionStatus.Open){
             return bytes32("Open");
         }
         else{
-            if(propositions[_prop_id].status == PropositionStatus.VotingClose){
+            if(proposition[_prop_id].status == PropositionStatus.VotingClose){
                 return bytes32("Reveal");
             }
             else{
@@ -281,11 +279,11 @@ contract DeepThought /*is usingOraclize*/ {
     }
 
     function get_outcome(uint256 _prop_id) public view returns (bytes32){
-        if (propositions[_prop_id].decision == VoteOption.True){
+        if (proposition[_prop_id].outcome == VoteOption.True){
             return bytes32("True");
         }
         else{
-            if(propositions[_prop_id].decision == VoteOption.False){
+            if(proposition[_prop_id].outcome == VoteOption.False){
                 return bytes32("False");
             }
             else{
@@ -295,24 +293,25 @@ contract DeepThought /*is usingOraclize*/ {
     }
 
     function get_reward_voter_by_prop_id(uint256 _prop_id) public view returns (uint256){
-        return propositions[_prop_id].voters_earned_reward[msg.sender];
+        return proposition[_prop_id].voter_earned_reward[msg.sender];
     }
 
     function get_reward_certifier_by_prop_id(uint256 _prop_id) public view returns (uint256){
-        return propositions[_prop_id].certifiers_earned_reward[msg.sender];
+        return proposition[_prop_id].certifier_earned_reward[msg.sender];
     }
 
     // ### State Changer
 
+    // This function has to be called before a submit request. It set/updates the min_bounty value according to the current oracle state
     function set_min_bounty() public{
         min_bounty = compute_min_bounty();
     }
 
     // Subscribe to the service and put founds in it
     function subscribe() public{
-        require(balances[msg.sender] == 0, "Already subscribed!");
-        balances[msg.sender] = msg.sender.balance;
-        reputations[msg.sender] = 1;
+        require(balance[msg.sender] == 0, "Already subscribed!");
+        balance[msg.sender] = msg.sender.balance;
+        reputation[msg.sender] = 1;
 
         user_num++;
         
@@ -324,56 +323,56 @@ contract DeepThought /*is usingOraclize*/ {
     // Submit a new proposition
     function submit_proposition(uint256 _prop_id, bytes32 _prop_content, uint256 _bounty) public {
         require (_bounty >= min_bounty, "Bounty is too low, check the minimum bounty");
-        require (balances[msg.sender] >= _bounty, "Not enough money to submit");
+        require (balance[msg.sender] >= _bounty, "Not enough money to submit");
         propositions_list.push(_prop_id);
-        Proposition storage p = propositions[_prop_id];
-        p.id =_prop_id;
-        p.submitter = msg.sender;
-        p.content = _prop_content;
-        p.bounty = _bounty;
+        Proposition storage prop = proposition[_prop_id];
+        prop.id =_prop_id;
+        prop.submitter = msg.sender;
+        prop.content = _prop_content;
+        prop.bounty = _bounty;
 
-        p.bounty_cert = min_bounty_cert;
-        p.bounty_voters = min_bounty_voters;
+        prop.bounty_cert = min_bounty_cert;
+        prop.bounty_voters = min_bounty_voters;
 
         //If the submitter has paid more than the minimum bounty, we split the surplus in 2 parts
-        p.bounty_cert += (p.bounty - min_bounty_cert - min_bounty_voters)/2;
-        p.bounty_voters += (p.bounty - min_bounty_cert - min_bounty_voters)/2;
+        prop.bounty_cert += (prop.bounty - min_bounty_cert - min_bounty_voters)/2;
+        prop.bounty_voters += (prop.bounty - min_bounty_cert - min_bounty_voters)/2;
 
-        p.status = PropositionStatus.Open;
-        p.decision = VoteOption.Unknown;
+        prop.status = PropositionStatus.Open;
+        prop.outcome = VoteOption.Unknown;
 
-        balances[msg.sender] -= _bounty;
+        balance[msg.sender] -= _bounty;
 
         submitted_propositions[msg.sender].push(_prop_id);
     }
     
-    // Put your stake to be able to view the propositions as a certifier
+    // Put your stake to be able to view the proposition as a certifier
     function certification_request(uint256 _stake) public {
-        require (ask_to_certify_stakes[msg.sender] == 0, "Action already performed! Choose a proposition");
-        require (balances[msg.sender] >= _stake, "Not enough money to certify");
-        require (_stake >= get_min_certifing_stake(msg.sender), "The stake is not enough for your reputation");
-        require (_stake <= get_max_certifing_stake(), "The stake is too high");
-        ask_to_certify_stakes[msg.sender] = _stake;
-        balances[msg.sender] -= _stake;
+        require (ask_to_certify_stake[msg.sender] == 0, "Action already performed! Choose a proposition");
+        require (balance[msg.sender] >= _stake, "Not enough money to certify");
+        require (_stake >= compute_min_certifing_stake(msg.sender), "The stake is not enough for your reputation");
+        require (_stake <= compute_max_certifing_stake(), "The stake is too high");
+        ask_to_certify_stake[msg.sender] = _stake;
+        balance[msg.sender] -= _stake;
     }
     
     // A certifier send his vote for a proposition
     function certify_proposition(uint256 _prop_id, bool _vote) public {
-        require (ask_to_certify_stakes[msg.sender] > 0, "Not a certifier! Make a request");
+        require (ask_to_certify_stake[msg.sender] > 0, "Not a certifier! Make a request");
         // Get the chosen proposition
-        Proposition storage prop = propositions[_prop_id];
+        Proposition storage prop = proposition[_prop_id];
         // Increment the vote and move the stake to the proposition chosen
         prop.certifiers_list.push(msg.sender);
-        uint256 stake = ask_to_certify_stakes[msg.sender];
-        ask_to_certify_stakes[msg.sender] = 0;
+        uint256 stake = ask_to_certify_stake[msg.sender];
+        ask_to_certify_stake[msg.sender] = 0;
         prop.certifiers_stake_pool += stake;
         if(_vote){
-            prop.certificates[VoteOption.True] += normalize_certifier_vote_weight(msg.sender, _prop_id, _vote);
-            prop.certifier_stakes[msg.sender][VoteOption.True] += stake;
+            prop.certificate[VoteOption.True] += normalize_certifier_vote_weight(msg.sender, _prop_id, _vote);
+            prop.certifier_stake[msg.sender][VoteOption.True] += stake;
             prop.T_certifiers.push(msg.sender);
         }else{
-            prop.certificates[VoteOption.False] += normalize_certifier_vote_weight(msg.sender, _prop_id, _vote);
-            prop.certifier_stakes[msg.sender][VoteOption.False] += stake;
+            prop.certificate[VoteOption.False] += normalize_certifier_vote_weight(msg.sender, _prop_id, _vote);
+            prop.certifier_stake[msg.sender][VoteOption.False] += stake;
             prop.F_certifiers.push(msg.sender);
         }
 
@@ -382,12 +381,12 @@ contract DeepThought /*is usingOraclize*/ {
     
     // Put your stake to receive a random proposition (via event)
     function voting_request(uint256 _stake) public {
-        require (_stake >= get_min_voting_stake(msg.sender), "The stake is not enough for your reputation");
-        require (_stake <= get_max_voting_stake(), "The stake is too high");
-        require (balances[msg.sender] >= _stake, "Not enough money to vote");
-        uint256 prop_id = get_proposition();
-        ask_to_vote_stakes[msg.sender][prop_id] = _stake;
-        balances[msg.sender] -= _stake;
+        require (_stake >= compute_min_voting_stake(msg.sender), "The stake is not enough for your reputation");
+        require (_stake <= compute_max_voting_stake(), "The stake is too high");
+        require (balance[msg.sender] >= _stake, "Not enough money to vote");
+        uint256 prop_id = find_random_proposition();
+        ask_to_vote_stake[msg.sender][prop_id] = _stake;
+        balance[msg.sender] -= _stake;
 
         //To return a value from a state changer function we emit an event
         emit return_id(prop_id);
@@ -395,17 +394,17 @@ contract DeepThought /*is usingOraclize*/ {
     
     // Vote for the proposition you received
     function vote(uint256 _prop_id, bytes32 _hashedVote, uint256 _predictionPercent) public {
-        require (ask_to_vote_stakes[msg.sender][_prop_id] > 0, "Not a voter of that proposition! Make a request");
+        require (ask_to_vote_stake[msg.sender][_prop_id] > 0, "Not a voter of that proposition! Make a request");
         // Get the propositon
-        Proposition storage prop = propositions[_prop_id];
+        Proposition storage prop = proposition[_prop_id];
         require(prop.status == PropositionStatus.Open, "Voting phase is closed!");
         // Move the stake to the proposition and vote
-        uint256 stake = ask_to_vote_stakes[msg.sender][_prop_id];
-        ask_to_vote_stakes[msg.sender][_prop_id] = 0;
+        uint256 stake = ask_to_vote_stake[msg.sender][_prop_id];
+        ask_to_vote_stake[msg.sender][_prop_id] = 0;
         prop.voters_list.push(msg.sender);
-        prop.voters_sealedVotes[msg.sender] = _hashedVote;
-        prop.voters_unsealedVotes[msg.sender] = VoteOption.Unknown;
-        prop.voters_stakes[msg.sender] = stake;
+        prop.voters_sealedVote[msg.sender] = _hashedVote;
+        prop.voters_unsealedVote[msg.sender] = VoteOption.Unknown;
+        prop.voters_stake[msg.sender] = stake;
         prop.voters_stake_pool += stake;
         prop.prediction_cert[msg.sender] = _predictionPercent;
         // If the max_voters number is reached the voting phase is closed
@@ -418,19 +417,19 @@ contract DeepThought /*is usingOraclize*/ {
 
     // Reveal the vote for a proposition
     function reveal_sealed_vote(uint256 _prop_id, string memory _salt) public {
-        Proposition storage prop = propositions[_prop_id];
+        Proposition storage prop = proposition[_prop_id];
         require(prop.status == PropositionStatus.VotingClose, "Proposition is not in the reveal phase!");
-        bytes32 hashedVote = prop.voters_sealedVotes[msg.sender];
+        bytes32 hashedVote = prop.voters_sealedVote[msg.sender];
         if(hashedVote == keccak256(abi.encodePacked(_prop_id, true, _salt))){
             // Vote was true
-            prop.voters_unsealedVotes[msg.sender] = VoteOption.True;
+            prop.voters_unsealedVote[msg.sender] = VoteOption.True;
             prop.T_voters.push(msg.sender);
-            prop.votes[VoteOption.True] += normalize_voter_vote_weight(msg.sender, _prop_id);
+            prop.vote[VoteOption.True] += normalize_voter_vote_weight(msg.sender, _prop_id);
         }else if(hashedVote == keccak256(abi.encodePacked(_prop_id, false, _salt))){
             // Vote was false
-            prop.voters_unsealedVotes[msg.sender] = VoteOption.False;
+            prop.voters_unsealedVote[msg.sender] = VoteOption.False;
             prop.F_voters.push(msg.sender);
-            prop.votes[VoteOption.False] += normalize_voter_vote_weight(msg.sender, _prop_id);
+            prop.vote[VoteOption.False] += normalize_voter_vote_weight(msg.sender, _prop_id);
         }else{
             revert("Wrong salt!!!");
         }
@@ -440,11 +439,12 @@ contract DeepThought /*is usingOraclize*/ {
         }
     }
  
-    // ### INTERNAL FUNCTIONS
+    // ######################################################################### INTERNAL FUNCTIONS
 
+    // This function has to be called to elaborate a proposition result. It calls other internal functions
     function elaborate_result_proposition(uint256 _prop_id) internal {
         stop_revealing_proposition(_prop_id);
-        set_decision(_prop_id);
+        set_outcome(_prop_id);
         create_scoreboard(_prop_id);
         distribute_rewards(_prop_id);
         distribute_reputation(_prop_id);
@@ -452,7 +452,7 @@ contract DeepThought /*is usingOraclize*/ {
 
     // Change status of proposition Open > VotingClosed
     function close_proposition(uint256 _prop_id) internal {
-        Proposition storage prop = propositions[_prop_id];
+        Proposition storage prop = proposition[_prop_id];
         require(prop.status == PropositionStatus.Open, "Should be Open");
         prop.status = PropositionStatus.VotingClose;
 
@@ -467,32 +467,34 @@ contract DeepThought /*is usingOraclize*/ {
 
     // Change status of proposition VotingClosed > RevealingClosed
     function stop_revealing_proposition(uint256 _prop_id) internal {
-        Proposition storage prop = propositions[_prop_id];
+        Proposition storage prop = proposition[_prop_id];
         require(prop.status == PropositionStatus.VotingClose, "Should be Reveal");
         prop.status = PropositionStatus.RevealingClose;
     }
 
     // Distribute the reputation to all the voters
     function distribute_reputation(uint256 _prop_id) internal {
-        Proposition storage prop = propositions[_prop_id];
+        Proposition storage prop = proposition[_prop_id];
         require(prop.status == PropositionStatus.RevealingClose, "Should be Close");
 
+        // Change the voters reputation according to the proposition outcome
         for(uint256 i = 0; i < prop.voters_list.length; i++){
             address voter_addr = prop.voters_list[i];
-            if(prop.voters_unsealedVotes[voter_addr] == prop.decision){
+            if(prop.voters_unsealedVote[voter_addr] == prop.outcome){
                 increment_reputation(voter_addr);
             }else{
-                if(prop.decision != VoteOption.Unknown){
+                if(prop.outcome != VoteOption.Unknown){
                     decrement_reputation(voter_addr);
                 }
             }
         }
+
         for(uint256 j = 0; j < prop.certifiers_list.length; j++){
             address cert_addr = prop.certifiers_list[j];
-            if(prop.certifier_stakes[cert_addr][prop.decision] > 0){
+            if(prop.certifier_stake[cert_addr][prop.outcome] > 0){
                 increment_reputation(cert_addr);
             }else{
-                if(prop.decision != VoteOption.Unknown){
+                if(prop.outcome != VoteOption.Unknown){
                     decrement_reputation(cert_addr);
                 }
             }
@@ -501,96 +503,97 @@ contract DeepThought /*is usingOraclize*/ {
 
     // Distribute the rewards to all the voters and certifiers
     function distribute_rewards(uint256 _prop_id) internal {
-        Proposition storage prop = propositions[_prop_id];
+        Proposition storage prop = proposition[_prop_id];
         require(prop.status == PropositionStatus.RevealingClose, "Should be Close");
         uint256 cert_reward_pool = prop.bounty_cert + prop.certifiers_stake_pool;
         uint256 voters_reward_pool = prop.bounty_voters + prop.voters_stake_pool;
 
         // redistribute the bounty to the submitter and the stake to all voters when the outcome is "Unknown"
         // store the stakes submitted by certifiers
-        if(prop.decision == VoteOption.Unknown){
-            balances[prop.submitter] += prop.bounty;
+        if(prop.outcome == VoteOption.Unknown){
+            balance[prop.submitter] += prop.bounty;
             for(uint256 i = 0; i < prop.voters_list.length; i++){
-                balances[prop.voters_list[i]] += prop.voters_stakes[prop.voters_list[i]];
-                prop.voters_stake_pool -= prop.voters_stakes[prop.voters_list[i]];
+                balance[prop.voters_list[i]] += prop.voters_stake[prop.voters_list[i]];
+                prop.voters_stake_pool -= prop.voters_stake[prop.voters_list[i]];
             }
             for(uint256 i = 0; i < prop.certifiers_list.length; i++){
-                lost_reward_pool += prop.certifier_stakes[prop.certifiers_list[i]][VoteOption.True] + prop.certifier_stakes[prop.certifiers_list[i]][VoteOption.False];
-                prop.certifiers_stake_pool -= prop.certifier_stakes[prop.certifiers_list[i]][VoteOption.True] + prop.certifier_stakes[prop.certifiers_list[i]][VoteOption.False];
+                lost_reward_pool += prop.certifier_stake[prop.certifiers_list[i]][VoteOption.True] + prop.certifier_stake[prop.certifiers_list[i]][VoteOption.False];
+                prop.certifiers_stake_pool -= prop.certifier_stake[prop.certifiers_list[i]][VoteOption.True] + prop.certifier_stake[prop.certifiers_list[i]][VoteOption.False];
             }
         }
         else{
             if(prop.certifiers_list.length > 0){
+                // Distribute rewards to certifiers
                 uint temp_lost_reward_pool = lost_reward_pool;
                 for(uint256 i = 0; i < prop.certifiers_list.length; i++){
                     address addr = prop.certifiers_list[i];
-                    uint256 cert_reward = get_certifier_reward(addr, _prop_id);
-                    if(prop.certifier_stakes[addr][prop.decision] > 0){
-                        balances[addr] += cert_reward + temp_lost_reward_pool/prop.certifiers_list.length;
-                        prop.certifiers_earned_reward[addr] += cert_reward + temp_lost_reward_pool/prop.certifiers_list.length;
+                    uint256 cert_reward = compute_certifier_reward(addr, _prop_id);
+                    if(prop.certifier_stake[addr][prop.outcome] > 0){
+                        balance[addr] += cert_reward + temp_lost_reward_pool/prop.certifiers_list.length;
+                        prop.certifier_earned_reward[addr] += cert_reward + temp_lost_reward_pool/prop.certifiers_list.length;
                         cert_reward_pool -= cert_reward;
                         lost_reward_pool -= temp_lost_reward_pool/prop.certifiers_list.length;
                     }
                 }
-            }else{
-                voters_reward_pool += cert_reward_pool;
-                cert_reward_pool = 0;
             }
 
+            // Distribute rewards to voters
             for(uint256 i = 0; i < prop.scoreboard.length; i++){
                 address addr = prop.scoreboard[i];
-                uint256 voter_reward = get_voter_reward(addr, _prop_id);
+                uint256 voter_reward = compute_voter_reward(addr, _prop_id);
                 if (voters_reward_pool > voter_reward){
-                    balances[addr] += voter_reward;
-                    prop.voters_earned_reward[addr] += voter_reward;
+                    balance[addr] += voter_reward;
+                    prop.voter_earned_reward[addr] += voter_reward;
                     voters_reward_pool -= voter_reward;
                 }else break;
             }
 
+            // the lost_reward pool receive the certification bounty part (if there aren't certificators) and the extra voter_reward_pool
             lost_reward_pool += voters_reward_pool + cert_reward_pool;
         }
 
         
     } 
 
-    // Set the decision based on the vote majority
-    function set_decision(uint256 _prop_id) internal {
-        Proposition storage prop = propositions[_prop_id];
+    // Set the outcome based on the vote majority
+    function set_outcome(uint256 _prop_id) internal {
+        Proposition storage prop = proposition[_prop_id];
         require(prop.status == PropositionStatus.RevealingClose, "Should be Close");
         VoteOption voter_result = VoteOption.Unknown;
         VoteOption cert_result = VoteOption.Unknown;
-        if(prop.votes[VoteOption.True] > prop.votes[VoteOption.False]) voter_result = VoteOption.True;
-        if(prop.votes[VoteOption.False] > prop.votes[VoteOption.True]) voter_result = VoteOption.False;
-        if(prop.certificates[VoteOption.True] > prop.certificates[VoteOption.False]) cert_result = VoteOption.True;
-        if(prop.certificates[VoteOption.False] > prop.certificates[VoteOption.True]) cert_result = VoteOption.False;
+        if(prop.vote[VoteOption.True] > prop.vote[VoteOption.False]) voter_result = VoteOption.True;
+        if(prop.vote[VoteOption.False] > prop.vote[VoteOption.True]) voter_result = VoteOption.False;
+        if(prop.certificate[VoteOption.True] > prop.certificate[VoteOption.False]) cert_result = VoteOption.True;
+        if(prop.certificate[VoteOption.False] > prop.certificate[VoteOption.True]) cert_result = VoteOption.False;
 
-        if(voter_result == cert_result || cert_result == VoteOption.Unknown) prop.decision = voter_result;
+        if(voter_result == cert_result || cert_result == VoteOption.Unknown) prop.outcome = voter_result;
     }  
 
     // Create the scoreboard
     function create_scoreboard(uint256 _prop_id) internal {
-        Proposition storage prop = propositions[_prop_id];
+        Proposition storage prop = proposition[_prop_id];
         require(prop.status == PropositionStatus.RevealingClose, "Should be Close");
         address voter_addr;
         for(uint256 i = 0; i < prop.T_voters.length; i++){
            voter_addr = prop.T_voters[i];
-           prop.scores[voter_addr] = assign_score(_prop_id, voter_addr);
+           prop.score[voter_addr] = assign_score(_prop_id, voter_addr);
            insert_scoreboard(_prop_id, voter_addr);
         }
+
         for(uint256 j = 0; j < prop.F_voters.length; j++){
            voter_addr = prop.F_voters[j];
-           prop.scores[voter_addr] = assign_score(_prop_id, voter_addr);
+           prop.score[voter_addr] = assign_score(_prop_id, voter_addr);
            insert_scoreboard(_prop_id, voter_addr);
         }
     } 
 
     // In-order voters insert inside scoreboard, from the Higher to the Lower
     function insert_scoreboard(uint256 _prop_id, address _addr) internal{
-        Proposition storage prop = propositions[_prop_id];
+        Proposition storage prop = proposition[_prop_id];
         address to_write = _addr;
         address store;
             for(uint i=0; i < prop.scoreboard.length; i++){
-                if(prop.scores[to_write] > prop.scores[prop.scoreboard[i]]){
+                if(prop.score[to_write] > prop.score[prop.scoreboard[i]]){
                     store = prop.scoreboard[i];
                     prop.scoreboard[i] = to_write;
                     to_write = store;
@@ -601,22 +604,22 @@ contract DeepThought /*is usingOraclize*/ {
     }   
 
     // Calculate the minimum stake for a voter
-    function get_min_voting_stake(address _voter) internal view returns (uint256) {
-        return stake_function(reputations[_voter]);
+    function compute_min_voting_stake(address _voter) internal view returns (uint256) {
+        return stake_function(reputation[_voter]);
     }
 
     // Calculate the maximum stake for a voter
-    function get_max_voting_stake() internal view returns (uint256) {
+    function compute_max_voting_stake() internal view returns (uint256) {
         return stake_function(max_reputation);
     }
     
     // Calculate the minimum stake for a certifier
-    function get_min_certifing_stake(address _certifier) internal view returns (uint256) {
-        return stake_function(10 ** 3 *(reputations[_certifier] + max_reputation));
+    function compute_min_certifing_stake(address _certifier) internal view returns (uint256) {
+        return stake_function(10 ** 3 *(reputation[_certifier] + max_reputation));
     }
     
     // Calculate the maximum stake for a certifier
-    function get_max_certifing_stake() internal view returns (uint256) {
+    function compute_max_certifing_stake() internal view returns (uint256) {
         return stake_function(10 ** 4 *(max_reputation));
     }
     
@@ -628,47 +631,47 @@ contract DeepThought /*is usingOraclize*/ {
     
     // Calculate the vote weight of a voter for a proposition
     function normalize_voter_vote_weight(address _voter, uint256 prop_id) internal view returns(uint256) {
-        Proposition storage p = propositions[prop_id];
-        uint256 stake = p.voters_stakes[_voter];
-        uint256 reputation = reputations[_voter];
-        return alfa * sqrt(stake) + (100 - alfa) * (stake + reputation);
+        Proposition storage prop = proposition[prop_id];
+        uint256 stake = prop.voters_stake[_voter];
+        uint256 rep = reputation[_voter];
+        return alfa * sqrt(stake) + (100 - alfa) * (stake + rep);
     }
 
     // Calculate the vote weight of a certifier for a proposition
     function normalize_certifier_vote_weight(address _certifier, uint256 prop_id, bool _vote) internal view returns(uint256) {
-        Proposition storage p = propositions[prop_id];
+        Proposition storage prop = proposition[prop_id];
         uint256 stake;
         if(_vote){
-            stake = p.certifier_stakes[_certifier][VoteOption.True];
+            stake = prop.certifier_stake[_certifier][VoteOption.True];
         }else{
-            stake = p.certifier_stakes[_certifier][VoteOption.False];
+            stake = prop.certifier_stake[_certifier][VoteOption.False];
         }
     
-        uint256 reputation = reputations[_certifier];
-        return alfa * sqrt(stake) + (100 - alfa) * (stake + reputation); 
+        uint256 rep = reputation[_certifier];
+        return alfa * sqrt(stake) + (100 - alfa) * (stake + rep); 
     }
 
     // Calculate the reward of a voter for a proposition
-    function get_voter_reward(address _voter, uint256 prop_id) internal view returns(uint256) {
-        Proposition storage p = propositions[prop_id];
-        uint256 stake = p.voters_stakes[_voter];
-        uint256 reputation = reputations[_voter];
-        return (beta * (stake ** 2) + (100 - beta) * (stake + reputation))/100;
+    function compute_voter_reward(address _voter, uint256 prop_id) internal view returns(uint256) {
+        Proposition storage prop = proposition[prop_id];
+        uint256 stake = prop.voters_stake[_voter];
+        uint256 rep = reputation[_voter];
+        return (beta * (stake ** 2) + (100 - beta) * (stake + rep))/100;
     }
 
     // Calculate the reward of a certifier for a proposition
-    function get_certifier_reward(address _certifier, uint256 _prop_id) internal view returns(uint256){
-        Proposition storage p = propositions[_prop_id];
-        uint256 stake = p.certifier_stakes[_certifier][p.decision];
+    function compute_certifier_reward(address _certifier, uint256 _prop_id) internal view returns(uint256){
+        Proposition storage prop = proposition[_prop_id];
+        uint256 stake = prop.certifier_stake[_certifier][prop.outcome];
 
         //linear reward -> max=stake*2
 
-        return ((10 ** potential_cert_num * stake / p.certifiers_stake_pool) * p.bounty_cert)/10 ** potential_cert_num + stake;
+        return ((10 ** potential_cert_num * stake / prop.certifiers_stake_pool) * prop.bounty_cert)/10 ** potential_cert_num + stake;
     }
 
     function compute_min_bounty() internal returns(uint256){
-        uint256 certifier_max_stake = get_max_certifing_stake();
-        uint256 voter_max_stake = get_max_voting_stake();
+        uint256 certifier_max_stake = compute_max_certifing_stake();
+        uint256 voter_max_stake = compute_max_voting_stake();
         uint256 voter_min_stake = stake_function((1));
 
         // Compute the maximum reward a voter, with the current max reputation and the max stake paid, could earn
@@ -682,14 +685,14 @@ contract DeepThought /*is usingOraclize*/ {
     }
     
     // Return a random propositon for a voter
-    function get_proposition() internal view returns(uint256) {
-        require(propositions_list.length > 0, "No propositions available");
+    function find_random_proposition() internal view returns(uint256) {
+        require(propositions_list.length > 0, "No proposition available");
         return propositions_list[random(propositions_list.length)];
     }
     
     // Generate the scoreboard for a proposition
     function assign_score(uint _prop_id, address _voter) internal view returns(uint){
-        Proposition storage prop = propositions[_prop_id];
+        Proposition storage prop = proposition[_prop_id];
         require(prop.status == PropositionStatus.RevealingClose, "Proposition status should be RevealingClose!");
         uint pred_score;
         uint info_score;
@@ -698,7 +701,7 @@ contract DeepThought /*is usingOraclize*/ {
         uint pred_mean = prediction_mean(_voter, _prop_id);
         while(w == VoteOption.Unknown)
         {
-            w = prop.voters_unsealedVotes[prop.voters_list[random(prop.voters_list.length)]];
+            w = prop.voters_unsealedVote[prop.voters_list[random(prop.voters_list.length)]];
         }
         pred_score = w == VoteOption.True ? 200 * q - q ** 2 : 10000 - q ** 2;
         info_score = pred_mean > q ? 10000 - (pred_mean - q) ** 2 : 10000 - (q - pred_mean) ** 2;
@@ -707,11 +710,11 @@ contract DeepThought /*is usingOraclize*/ {
 
     // Produce the arithmetic mean without the prediction of the voter itself (should be a geometric mean)
     function prediction_mean(address _voter, uint256 _prop_id) internal view returns(uint256){
-        Proposition storage _prop = propositions[_prop_id];
+        Proposition storage _prop = proposition[_prop_id];
         uint256 i;
         uint256 tot = 0;
         uint256 num;
-        if(_prop.voters_unsealedVotes[_voter] == VoteOption.True){
+        if(_prop.voters_unsealedVote[_voter] == VoteOption.True){
             num = _prop.T_voters.length;
             for(i = 0; i < num; i++){
                 tot += _prop.prediction_cert[_prop.T_voters[i]];
@@ -729,9 +732,9 @@ contract DeepThought /*is usingOraclize*/ {
     
     // Increment the reputation of a voter
     function increment_reputation(address _voter) internal {
-        uint256 rep = reputations[_voter];
+        uint256 rep = reputation[_voter];
         if (rep < max_reputation) {
-            reputations[_voter] += 1;
+            reputation[_voter] += 1;
         }
 
         if(rep > current_max_reputation){
@@ -741,13 +744,13 @@ contract DeepThought /*is usingOraclize*/ {
 
     // Decrement the reputation of a voter
     function decrement_reputation(address _voter) internal {
-        uint256 rep = reputations[_voter];
+        uint256 rep = reputation[_voter];
         if (rep > 1) {
-            reputations[_voter] -= 1;
+            reputation[_voter] -= 1;
         }
     }
 
-    // ### UTILITY FUNCTIONS
+    // ######################################################################### UTILITY FUNCTIONS
 
     // Generate a pseudo-random number from 0 to _max
     function random(uint256 _max) internal view returns (uint8) 

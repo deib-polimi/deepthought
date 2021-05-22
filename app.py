@@ -1,6 +1,3 @@
-import os
-import sys
-
 import setup
 
 def get_info(web3, contract):
@@ -23,7 +20,7 @@ def main():
 
     get_info(web3,contract)
 
-    # CLI
+# ---------------------------------------------------------------------------- CLI
 
     while 1:
         
@@ -50,7 +47,7 @@ def main():
                 # ONCE SUBSCRIBED THE WORKFLOW SHOULD BE:
                 # SUBMITTER: submit_proposition > [wait for all to vote] > [wait for revealing or eventually result_proposition]
                 # VOTER: voting_request > vote > [wait for all to vote] > reveal_sealed_vote > [get the rewards when propositon is closed]
-                # CERTIFIER: certification_request > show_propositions > certify_proposition > [get the rewards when propositon is closed]
+                # CERTIFIER: certification_request > get_prop_id_by_index > certify_proposition > [get the rewards when propositon is closed]
 
                 insert = int(input ('\nROLE MENU\nWHAT ROLE DO YOU WANT TO TAKE?\n1 - Certifier\n2 - Voter\n3 - Submitter\n4 - Your account info\n5 - Go back to MAIN MENU\nEnter here: '))
 
@@ -63,6 +60,8 @@ def main():
                     get_info(web3,contract)
 
                 elif insert == 1: #CERTIFY
+
+# ---------------------------------------------------------------------------- CERTIFIER
 
                     insert = int(input("\nCERTIFIER MENU\n1 - Make a certification request\n2 - Show certified propositions state\n3 - Go back to the MAIN MENU\n"))
 
@@ -79,11 +78,11 @@ def main():
 
                         print('\nPROPOSITION YOU CAN CERTIFY\nProposition id : content')
 
-                        max_prop_num = int(contract.functions.get_max_number_of_propositions().call())
+                        max_prop_num = int(contract.functions.get_number_propositions().call())
 
                         for i in range(0, max_prop_num):
-                            prop_id = int(contract.functions.show_propositions(i).call())
-                            content = str(contract.functions.get_prop_content(prop_id).call(),'utf-8')
+                            prop_id = int(contract.functions.get_prop_id_by_index(i).call())
+                            content = str(contract.functions.get_prop_content_by_prop_id(prop_id).call(),'utf-8')
                             
                             print(str(prop_id) + ' : ' + content)
 
@@ -123,6 +122,8 @@ def main():
 
                 elif insert == 2: #VOTE
 
+# ---------------------------------------------------------------------------- VOTER
+
                     insert = int(input("\nVOTER MENU\n1 - Make a vote request\n2 - Show voted propositions state\n3 - Go back to the MAIN MENU\n"))
 
                     if insert == 1: #VOTE REQUEST
@@ -137,7 +138,7 @@ def main():
 
                         # receive the prop_id from a transaction event
                         prop_id = int(web3.eth.getTransactionReceipt(tx_hash)['logs'][0]['data'],16)
-                        prop_content = str(contract.functions.get_prop_content(prop_id).call(),'utf-8')
+                        prop_content = str(contract.functions.get_prop_content_by_prop_id(prop_id).call(),'utf-8')
                         print('\nYou can vote the proposition ' + str(prop_id) + ' (content: "' + prop_content + '")')
 
                         print("\nVOTE THE PROPOSITION")
@@ -190,6 +191,8 @@ def main():
 
 
                 elif insert == 3 : #SUBMIT
+
+# ---------------------------------------------------------------------------- SUBMITTER
 
                     insert = int(input("\nSUBMITTER MENU\n1 - Submit a proposition\n2 - Show submitted propositions state\n"))
 
