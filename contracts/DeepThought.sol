@@ -2,12 +2,14 @@ pragma solidity >=0.8.0 <0.9.0;
 // SPDX-License-Identifier: UNLICENSED
 
 
-/**
- * @title DeepThought
+/*
+ * @title: DeepThought
+ * @dev:   Voting-based Oracle with the aim of verifying propositions
  */
-contract DeepThought /*is usingOraclize*/ {
+
+contract DeepThought {
     
-    // ######################################################################### PARAMETERS OF THE ORACLE
+    /* ### PARAMETERS OF THE ORACLE ### */
 
     // Number of users subscribed in the oracle
     uint256 user_num;
@@ -42,7 +44,7 @@ contract DeepThought /*is usingOraclize*/ {
     // Parameter for reward calculation
     uint256 beta;
 
-    // ### GLOBAL VARIABLES
+    /* ### GLOBAL VARIABLES ### */
 
     // List of all the prop_id
     uint256[] propositions_list;
@@ -74,7 +76,7 @@ contract DeepThought /*is usingOraclize*/ {
     // Voter > list of submitted proposition
     mapping (address => uint256[]) submitted_propositions;
 
-    // ### STRUCTURES
+    /* ### STRUCTURES ### */
 
     enum VoteOption {Unknown, True, False}
 
@@ -125,6 +127,9 @@ contract DeepThought /*is usingOraclize*/ {
 
         // List of the addresses who certified
         address[] certifiers_list;
+
+        // Certifiers sealed vote
+        mapping (address => bytes32) certifiers_sealedVote;
         
         // Certifiers vote and stake (no need to divide it in multiple maps like for the voters since the vote is not sealed)
         mapping (address => mapping (VoteOption => uint256)) certifier_stake;
@@ -163,12 +168,12 @@ contract DeepThought /*is usingOraclize*/ {
         address[] F_certifiers;
     }
 
-    // ######################################################################### EVENTS
+    /* ### EVENTS ### */
 
     // Event to return the prop_id after the voting transaction 
     event return_id(uint256 prop_id);
 
-    // ######################################################################### CONSTRUCTORS
+    /* ### CONSTRUCTORS ### */
     
     constructor(){
         max_voters = 2;
@@ -188,12 +193,12 @@ contract DeepThought /*is usingOraclize*/ {
         potential_cert_num = 0;
     }
 
-    // ### THE WORKFLOW SHOULD BE:
+    /* ### WORKFLOW ### */
     // SUBMITTER: subscribe > set_min_bounty > submit_proposition > [wait for all to vote] > [wait for revealing or eventually result_proposition]
     // VOTER: subscribe > voting_request > vote > [wait for all to vote] > reveal_sealed_vote > [get the rewards when propositon is closed]
-    // CERTIFIER: subscribe > certification_request > show_propositions > certify_proposition > [get the rewards when propositon is closed]
+    // CERTIFIER: subscribe > certification_request > show_propositions > certify_proposition > [wait for all to vote] > reveal_sealed_vote > [get the rewards when propositon is closed]
 
-    // ######################################################################### OUT FUNCTIONS
+    /* ### OUT FUNCTIONS ### */
 
     // ### Getters
 
@@ -357,7 +362,7 @@ contract DeepThought /*is usingOraclize*/ {
     }
     
     // A certifier send his vote for a proposition
-    function certify_proposition(uint256 _prop_id, bool _vote) public {
+    function certify_proposition(uint256 _prop_id, bytes32 _hashed_vote) public {
         require (ask_to_certify_stake[msg.sender] > 0, "Not a certifier! Make a request");
         // Get the chosen proposition
         Proposition storage prop = proposition[_prop_id];
@@ -365,18 +370,31 @@ contract DeepThought /*is usingOraclize*/ {
         prop.certifiers_list.push(msg.sender);
         uint256 stake = ask_to_certify_stake[msg.sender];
         ask_to_certify_stake[msg.sender] = 0;
+        prop.certifiers_sealedVote[msg.sender] = _hashed_vote;
         prop.certifiers_stake_pool += stake;
-        if(_vote){
-            prop.certificate[VoteOption.True] += normalize_certifier_vote_weight(msg.sender, _prop_id, _vote);
-            prop.certifier_stake[msg.sender][VoteOption.True] += stake;
-            prop.T_certifiers.push(msg.sender);
-        }else{
-            prop.certificate[VoteOption.False] += normalize_certifier_vote_weight(msg.sender, _prop_id, _vote);
-            prop.certifier_stake[msg.sender][VoteOption.False] += stake;
-            prop.F_certifiers.push(msg.sender);
-        }
-
+        prop.certifier_stake[msg.sender][VoteOption.Unknown] += stake;
         certified_propositions[msg.sender].push(_prop_id);
+    }
+
+    // reveal the certifier's vote for a proposition
+    function reveal_certifier_sealed_vote(uint256 _prop_id, string memory _salt) public {
+        Proposition storage prop = proposition[_prop_id];
+        require(prop.status == PropositionStatus.VotingClose, "Proposition is not in the reveal phase!");
+        bytes32 hashed_vote = prop.certifiers_sealedVote[msg.sender];
+        if(hashed_vote == keccak256(abi.encodePacked(_prop_id, true, _salt))){
+            // Vote was true
+            prop.certifier_stake[msg.sender][VoteOption.True] += prop.certifier_stake[msg.sender][VoteOption.Unknown];
+            prop.T_certifiers.push(msg.sender);
+            prop.certificate[VoteOption.True] += normalize_certifier_vote_weight(msg.sender, _prop_id, true);
+        }else if(hashed_vote == keccak256(abi.encodePacked(_prop_id, false, _salt))){
+            // Vote was false
+            prop.certifier_stake[msg.sender][VoteOption.True] += prop.certifier_stake[msg.sender][VoteOption.Unknown];
+            prop.F_certifiers.push(msg.sender);
+            prop.certificate[VoteOption.False] += normalize_certifier_vote_weight(msg.sender, _prop_id, false);
+        }else{
+            revert("Wrong salt!!!");
+        }
+        prop.certifier_stake[msg.sender][VoteOption.Unknown] = 0;
     }
     
     // Put your stake to receive a random proposition (via event)
@@ -393,16 +411,16 @@ contract DeepThought /*is usingOraclize*/ {
     }
     
     // Vote for the proposition you received
-    function vote(uint256 _prop_id, bytes32 _hashedVote, uint256 _predictionPercent) public {
+    function vote(uint256 _prop_id, bytes32 _hashed_vote, uint256 _predictionPercent) public {
         require (ask_to_vote_stake[msg.sender][_prop_id] > 0, "Not a voter of that proposition! Make a request");
-        // Get the propositon
+        // Get the proposition
         Proposition storage prop = proposition[_prop_id];
         require(prop.status == PropositionStatus.Open, "Voting phase is closed!");
         // Move the stake to the proposition and vote
         uint256 stake = ask_to_vote_stake[msg.sender][_prop_id];
         ask_to_vote_stake[msg.sender][_prop_id] = 0;
         prop.voters_list.push(msg.sender);
-        prop.voters_sealedVote[msg.sender] = _hashedVote;
+        prop.voters_sealedVote[msg.sender] = _hashed_vote;
         prop.voters_unsealedVote[msg.sender] = VoteOption.Unknown;
         prop.voters_stake[msg.sender] = stake;
         prop.voters_stake_pool += stake;
@@ -415,17 +433,17 @@ contract DeepThought /*is usingOraclize*/ {
         voted_propositions[msg.sender].push(_prop_id);
     }
 
-    // Reveal the vote for a proposition
-    function reveal_sealed_vote(uint256 _prop_id, string memory _salt) public {
+    // Reveal the voter's vote for a proposition
+    function reveal_voter_sealed_vote(uint256 _prop_id, string memory _salt) public {
         Proposition storage prop = proposition[_prop_id];
         require(prop.status == PropositionStatus.VotingClose, "Proposition is not in the reveal phase!");
-        bytes32 hashedVote = prop.voters_sealedVote[msg.sender];
-        if(hashedVote == keccak256(abi.encodePacked(_prop_id, true, _salt))){
+        bytes32 hashed_vote = prop.voters_sealedVote[msg.sender];
+        if(hashed_vote == keccak256(abi.encodePacked(_prop_id, true, _salt))){
             // Vote was true
             prop.voters_unsealedVote[msg.sender] = VoteOption.True;
             prop.T_voters.push(msg.sender);
             prop.vote[VoteOption.True] += normalize_voter_vote_weight(msg.sender, _prop_id);
-        }else if(hashedVote == keccak256(abi.encodePacked(_prop_id, false, _salt))){
+        }else if(hashed_vote == keccak256(abi.encodePacked(_prop_id, false, _salt))){
             // Vote was false
             prop.voters_unsealedVote[msg.sender] = VoteOption.False;
             prop.F_voters.push(msg.sender);
@@ -439,7 +457,7 @@ contract DeepThought /*is usingOraclize*/ {
         }
     }
  
-    // ######################################################################### INTERNAL FUNCTIONS
+    /* ### INTERNAL FUNCTIONS ### */
 
     // This function has to be called to elaborate a proposition result. It calls other internal functions
     function elaborate_result_proposition(uint256 _prop_id) internal {
@@ -750,7 +768,7 @@ contract DeepThought /*is usingOraclize*/ {
         }
     }
 
-    // ######################################################################### UTILITY FUNCTIONS
+    /* ### UTILITY FUNCTIONS ### */
 
     // Generate a pseudo-random number from 0 to _max
     function random(uint256 _max) internal view returns (uint8) 

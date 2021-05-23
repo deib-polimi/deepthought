@@ -88,18 +88,21 @@ def main():
 
                         prop_id = int(input('\nWhich proposition do you want to certify?\nProposition id: '))
 
-                        #TODO : if we make hashed the certifier vote we have to change the following code block
                         while insert != 'True' and insert != 'False':
                             insert = input('Vote (True/False): ')
 
                         if insert == 'True': vote = True
                         elif insert == 'False': vote = False
 
-                        contract.functions.certify_proposition(prop_id, vote).transact()
+                        salt = input('Insert your salt (REMEMBER IT!): ')
+
+                        hashedVote = web3.solidityKeccak(['uint256','bool','string'], [prop_id, vote, salt])
+
+                        contract.functions.certify_proposition(prop_id, hashedVote).transact()
                         print("Nice! your certification has been recorded")
 
                     elif insert == 2: #CERTIFIED STATUS
-                        
+                        reveal = False
                         certified_prop_num = int(contract.functions.get_number_certified_propositions().call())
 
                         print('\nPROPOSITION ID -> STATUS')
@@ -108,6 +111,7 @@ def main():
                             prop_id = int(contract.functions.get_certified_prop_id(i).call())
                             status = str(contract.functions.get_prop_state(prop_id).call(), 'utf-8')
 
+                            reveal = status.startswith('Reveal') or reveal
                             out = str(prop_id) + ' -> ' + status
                             if (status.startswith('Close')):
                                 result = str(contract.functions.get_outcome(prop_id).call(),'utf-8')
@@ -115,6 +119,13 @@ def main():
                                 out += ' (result: ' + result + '), (earned: ' + earned + ' ETH)'
 
                             print(out)
+                        if reveal:
+                            insert = input('Do you want to reveal your vote about the "Reveal" proposition?(y/n): ')
+                            if insert == 'y':
+                                prop_id = int(input('Proposition id: '))
+                                salt = bytes(input('Insert your salt to reveal your vote (YOU HAD TO REMEMBER IT!): '),'utf-8')
+
+                                contract.functions.reveal_certifier_sealed_vote(prop_id, salt).transact()
 
                     elif insert == 3: #GO BACK
 
@@ -167,7 +178,7 @@ def main():
                             prop_id = int(contract.functions.get_voted_prop_id(i).call())
                             status = str(contract.functions.get_prop_state(prop_id).call(), 'utf-8')
 
-                            reveal = status.startswith('Reveal')
+                            reveal = status.startswith('Reveal') or reveal
 
                             out = str(prop_id) + ' -> ' + status
                             if (status.startswith('Close')):
@@ -183,7 +194,7 @@ def main():
                                 prop_id = int(input('Proposition id: '))
                                 salt = bytes(input('Insert your salt to reveal your vote (YOU HAD TO REMEMBER IT!): '),'utf-8')
 
-                                contract.functions.reveal_sealed_vote(prop_id, salt).transact()
+                                contract.functions.reveal_voter_sealed_vote(prop_id, salt).transact()
 
                     elif insert == 3: #GO BACK
 
