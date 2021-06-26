@@ -487,6 +487,15 @@ contract DeepThought {
     function stop_revealing_proposition(uint256 _prop_id) internal {
         Proposition storage prop = proposition[_prop_id];
         require(prop.status == PropositionStatus.VotingClose, "Should be Reveal");
+
+        //check if all the certifiers have revealed, otherwise take their stake and put it in the lost_reward_pool
+        for(uint i=0; i< prop.certifiers_list.length; i++){
+            uint stake = prop.certifier_stake[prop.certifiers_list[i]][VoteOption.Unknown];
+            if (stake > 0){
+                lost_reward_pool += stake;
+                prop.certifier_stake[prop.certifiers_list[i]][VoteOption.Unknown] = 0;
+            }
+        }
         prop.status = PropositionStatus.RevealingClose;
     }
 
@@ -652,7 +661,7 @@ contract DeepThought {
         Proposition storage prop = proposition[prop_id];
         uint256 stake = prop.voters_stake[_voter];
         uint256 rep = reputation[_voter];
-        return alfa * sqrt(stake) + (100 - alfa) * (stake + rep);
+        return alfa * sqrt(stake) + (100 - alfa) * (stake + stake*rep/max_reputation);
     }
 
     // Calculate the vote weight of a certifier for a proposition
@@ -666,7 +675,7 @@ contract DeepThought {
         }
     
         uint256 rep = reputation[_certifier];
-        return alfa * sqrt(stake) + (100 - alfa) * (stake + rep); 
+        return alfa * sqrt(stake) + (100 - alfa) * (stake + stake*rep/max_reputation);
     }
 
     // Calculate the reward of a voter for a proposition
@@ -674,7 +683,7 @@ contract DeepThought {
         Proposition storage prop = proposition[prop_id];
         uint256 stake = prop.voters_stake[_voter];
         uint256 rep = reputation[_voter];
-        return (beta * (stake ** 2) + (100 - beta) * (stake + rep))/100;
+        return (beta * (stake ** 2) + (100 - beta) * (stake + stake*rep/max_reputation))/100;
     }
 
     // Calculate the reward of a certifier for a proposition
@@ -693,7 +702,7 @@ contract DeepThought {
         uint256 voter_min_stake = stake_function((1));
 
         // Compute the maximum reward a voter, with the current max reputation and the max stake paid, could earn
-        uint256 current_max_voter_reward = (beta * (voter_max_stake ** 2) + (100 - beta) * (voter_max_stake + current_max_reputation))/100;
+        uint256 current_max_voter_reward = (beta * (voter_max_stake ** 2) + (100 - beta) * 2 * voter_max_stake )/100;
 
         min_bounty_cert = certifier_max_stake * (1 + potential_cert_num);
         min_bounty_voters = current_max_voter_reward * (max_voters / 2) - voter_max_stake * (max_voters / 2) - voter_min_stake * (max_voters /2);
