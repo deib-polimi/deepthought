@@ -1,8 +1,5 @@
 # Oracle's Blockchain Research Project
 
-- https://dev.to/gcrsaldanha/deploy-a-smart-contract-on-ethereum-with-python-truffle-and-web3py-5on
-- https://dev.to/gcrsaldanha/persist-data-to-the-ethereum-blockchain-using-python-truffle-and-ganache-47lb
-
 To compile:
 ```
 truffle compile
@@ -19,3 +16,6 @@ To execute stuff (remember to check blockchain and contract addresses to match t
 ```
 python app.py
 ```
+
+# Report
+at https://github.com/marcoDige/RP3project/blob/main/DeepThought%20report.pdf
