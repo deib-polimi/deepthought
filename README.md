@@ -18,4 +18,4 @@ python app.py
 ```
 
 # Report
-at https://github.com/marcoDige/RP3project/blob/main/DeepThought%20report.pdf
+at https://github.com/marcoDige/DeepThought/blob/main/DeepThought%20report.pdf
