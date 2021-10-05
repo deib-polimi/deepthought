@@ -1,4 +1,4 @@
-import setup
+import DeepThought_setup
 
 def get_info(web3, contract):
 
