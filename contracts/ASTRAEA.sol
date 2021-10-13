@@ -470,7 +470,7 @@ contract ASTRAEA {
         // Voter is rewarded if his vote agrees with the outcome, eventual penalties go in the reward_pool
         if(outcome != VoteOption.Unknown){
             reward = prop.voter_stake[_voter][outcome] * (prop.bounty / prop.votes[outcome] + 1);
-            cert_reward_pool[outcome] += prop.voter_stake[_voter][opposite];
+            cert_reward_pool[opposite] += prop.voter_stake[_voter][opposite];
         }
 
         // otherwise if the outcome is Unknown, gets back his stake
@@ -495,7 +495,7 @@ contract ASTRAEA {
         // Certifier is rewarded if the certification agrees with the outcome, eventual penalties and unclaimed bounties go in the reward_pool
         if(outcome != VoteOption.Unknown){
             reward = prop.certifier_stake[_cert][outcome] * (cert_reward_pool[outcome] / (cert_target * prop.certificates[outcome]) + 1);
-            cert_reward_pool[outcome] += prop.certifier_stake[_cert][opposite] + prop.certifier_stake[_cert][VoteOption.Unknown];
+            cert_reward_pool[opposite] += prop.certifier_stake[_cert][opposite] + prop.certifier_stake[_cert][VoteOption.Unknown];
         }
 
         // otherwise if the outcome is Unknown, loses everything
