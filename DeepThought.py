@@ -72,7 +72,7 @@ def main():
                         max_stake_certifier = str(web3.fromWei(contract.functions.get_max_stake_certifier().call(), 'ether'))
 
                         print('\nCERTIFICATION REQUEST')
-                        stake = float(input('stake (wei) [' + min_stake_certifier + ' ETH, ' + max_stake_certifier + ' ETH]: '))
+                        stake = float(input('stake (ETH) [' + min_stake_certifier + ' ETH, ' + max_stake_certifier + ' ETH]: '))
 
                         contract.functions.certification_request(int(stake * (10 ** 18))).transact()
 
@@ -210,7 +210,6 @@ def main():
 
                     if insert == 1: #SUBMITTING
 
-                        contract.functions.set_min_bounty().transact()
                         min_bounty = str(web3.fromWei(int(contract.functions.get_min_bounty().call()), 'ether'))
 
                         print("\nSUBMIT A PROPOSITION")

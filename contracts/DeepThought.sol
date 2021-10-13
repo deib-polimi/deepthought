@@ -76,6 +76,11 @@ contract DeepThought {
     // Parameter for reward calculation
     uint256 beta;
 
+    // Parameter for the Scoreboard reward mechanism
+    uint256 to_reward_perc;
+
+
+
     /* ### STRUCTURES ### */
 
     enum VoteOption {Unknown, True, False}
@@ -174,17 +179,21 @@ contract DeepThought {
 
         n_max_certifiers = 1;
         
-        max_reputation = 1000;
+        max_reputation = 100;
         
         lost_reward_pool = 0;
         
-        alfa = 70; // %
+        alfa = 70;
         
-        beta = 30; // %
+        beta = 30;
 
         current_max_reputation = 1;
 
         user_num = 0;
+
+        to_reward_perc = 50;
+
+        compute_min_bounty();
     }
 
     /* ### WORKFLOW ### */
@@ -326,11 +335,6 @@ contract DeepThought {
     }
 
     // ### State Changer
-
-    // This function has to be called before a submit request. It set/updates the min_bounty value according to the current oracle state
-    function set_min_bounty() public{
-        min_bounty = compute_min_bounty();
-    }
 
     // Subscribe to the service and put founds in it
     function subscribe() public{
@@ -569,27 +573,25 @@ contract DeepThought {
         else{
             if(prop.certifiers_list.length > 0){
                 // Distribute rewards to certifiers
-                uint256 prop_lost_reward_pool = lost_reward_pool/propositions_list.length;
+                uint256 prop_lost_reward_pool = lost_reward_pool/(propositions_list.length + 1);
                 lost_reward_pool -= prop_lost_reward_pool;
 
                 for(uint256 i = 0; i < prop.certifiers_list.length; i++){
                     address addr = prop.certifiers_list[i];
-                    uint256 cert_reward = compute_certifier_reward(addr, _prop_id);
+                    uint256 cert_reward = compute_certifier_reward(addr, _prop_id, prop_lost_reward_pool, cert_reward_pool);
                     if(prop.certifier_stake[addr][prop.outcome] > 0){
-                        uint256 reward = cert_reward + prop_lost_reward_pool/prop.certifiers_list.length;
-                        balance[addr] += reward;
-                        prop.certifier_earned_reward[addr] += reward;
-                        cert_reward_pool -= cert_reward;
-                        prop_lost_reward_pool -= prop_lost_reward_pool/prop.certifiers_list.length;
+                        balance[addr] += cert_reward;
+                        prop.certifier_earned_reward[addr] += cert_reward;
+                        cert_reward_pool -= prop.certifier_stake[addr][prop.outcome];
                     }
                 }
             }
 
             // Distribute rewards to voters
-            for(uint256 i = 0; i < prop.scoreboard.length; i++){
+            for(uint256 i = 0; i < prop.scoreboard.length * to_reward_perc/100; i++){
                 address addr = prop.scoreboard[i];
                 uint256 voter_reward = compute_voter_reward(addr, _prop_id);
-                if (voters_reward_pool > voter_reward){
+                if (voters_reward_pool > voter_reward){ //Check -> voter_reward_pool can't be negative
                     balance[addr] += voter_reward;
                     prop.voter_earned_reward[addr] += voter_reward;
                     voters_reward_pool -= voter_reward;
@@ -597,6 +599,8 @@ contract DeepThought {
             }
             // the lost_reward pool receive the certification bounty part (if there aren't certificators) and the extra voter_reward_pool
             lost_reward_pool += voters_reward_pool + cert_reward_pool;
+            voters_reward_pool = 0;
+            cert_reward_pool = 0;
         }
 
         
@@ -707,25 +711,25 @@ contract DeepThought {
     }
 
     // Calculate the reward of a certifier for a proposition
-    function compute_certifier_reward(address _certifier, uint256 _prop_id) internal view returns(uint256){
+    function compute_certifier_reward(address _certifier, uint256 _prop_id, uint256 prop_lost_reward_pool, uint256 cert_reward_pool) internal view returns(uint256){
         Proposition storage prop = proposition[_prop_id];
         uint256 stake = prop.certifier_stake[_certifier][prop.outcome];
 
+        uint256 addition = (prop_lost_reward_pool * stake)/cert_reward_pool;
+
         //certifier reward = stake
 
-        return stake;
+        return stake + addition;
     }
 
-    function compute_min_bounty() internal returns(uint256){
-        uint256 certifier_max_stake = compute_max_certifing_stake();
+    function compute_min_bounty() internal{
         uint256 voter_max_stake = compute_max_voting_stake();
         uint256 voter_min_stake = stake_function((1));
 
-        // Compute the maximum reward a voter, with the current max reputation and the max stake paid, could earn
-        uint256 current_max_voter_reward = (beta * (voter_max_stake ** 2) + (100 - beta) * 2 * voter_max_stake )/100;
+        min_bounty = to_reward_perc * (beta * (voter_max_stake ** 2) + (100 - beta) * (voter_max_stake + voter_max_stake*max_reputation/max_reputation))/10000 * n_max_voters - voter_min_stake * n_max_voters;
 
         // Compute the min bounty 
-        return 1;
+        
     }
     
     // Return a random propositon for a voter
