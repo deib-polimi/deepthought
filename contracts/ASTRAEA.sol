@@ -460,17 +460,27 @@ contract ASTRAEA {
     }
 
     // Compute the reward of a voter
-    function reward_voter(address _voter, uint256 prop_id) internal view returns(uint256){
+    function reward_voter(address _voter, uint256 prop_id) internal returns(uint256){
         Proposition storage prop = proposition[prop_id];
         require(prop.status == PropositionStatus.Close, "Should be Close");
         VoteOption outcome = prop.outcome;
         uint256 reward;
-        if(outcome != VoteOption.Unknown){ // Voter is rewarded if his vote agrees with the outcome
+        VoteOption opposite = (outcome == VoteOption.True) ? VoteOption.False : VoteOption.True;
+
+        // Voter is rewarded if his vote agrees with the outcome, eventual penalties go in the reward_pool
+        if(outcome != VoteOption.Unknown){
             reward = prop.voter_stake[_voter][outcome] * (prop.bounty / prop.votes[outcome] + 1);
+            cert_reward_pool[outcome] += prop.voter_stake[_voter][opposite];
         }
-        else{ // otherwise if the outcome is Unknown, gets back his stake
+
+        // otherwise if the outcome is Unknown, gets back his stake
+        else{
             reward = prop.voter_stake[_voter][VoteOption.True] + prop.voter_stake[_voter][VoteOption.False];
         }
+
+        prop.voter_stake[_voter][VoteOption.True] = 0;
+        prop.voter_stake[_voter][VoteOption.False] = 0;
+
         return reward;
     }
 
@@ -480,18 +490,28 @@ contract ASTRAEA {
         require(prop.status == PropositionStatus.Close, "Should be Close");
         VoteOption outcome = prop.outcome;
         uint256 reward;
-        if(outcome != VoteOption.Unknown){ // Certifier is rewarded if the certification agrees with the outcome
+        VoteOption opposite = (outcome == VoteOption.True) ? VoteOption.False : VoteOption.True;
+
+        // Certifier is rewarded if the certification agrees with the outcome, eventual penalties and unclaimed bounties go in the reward_pool
+        if(outcome != VoteOption.Unknown){
             reward = prop.certifier_stake[_cert][outcome] * (cert_reward_pool[outcome] / (cert_target * prop.certificates[outcome]) + 1);
+            cert_reward_pool[outcome] += prop.certifier_stake[_cert][opposite] + prop.certifier_stake[_cert][VoteOption.Unknown];
         }
-        else{ // otherwise if the outcome is Unknown, loses everything
-            VoteOption opposite = (outcome == VoteOption.True) ? VoteOption.False : VoteOption.True;
+
+        // otherwise if the outcome is Unknown, loses everything
+        else{
             reward = 0;
             cert_reward_pool[opposite] += cert_reward_pool[outcome]/cert_target;
         }
 
+        prop.certifier_stake[_cert][VoteOption.Unknown] = 0;
+        prop.certifier_stake[_cert][VoteOption.True] = 0;
+        prop.certifier_stake[_cert][VoteOption.False] = 0;
+
         return reward;
     }
 
+    /// ### VIEWS
 
     // Return a random proposition for a voter
     function find_random_proposition() internal view returns(uint256) {
