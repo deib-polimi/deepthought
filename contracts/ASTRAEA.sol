@@ -102,11 +102,17 @@ contract ASTRAEA {
         // Voters stake
         mapping(address => mapping (VoteOption => uint256)) voter_stake;
 
-        // Voters sealed vote
-        mapping(address => bytes32) voter_sealedVote;
+        // Voters sealed vote (it supports multiple votes for a proposition)
+        mapping(address => mapping(uint => bytes32)) voter_sealedVote;
 
         // Voters unsealed vote
-        mapping(address => VoteOption) voter_unsealedVote;
+        mapping(address => mapping(uint => VoteOption)) voter_unsealedVote;
+
+        // Number of votes for each voter
+        mapping(address => uint8) voter_votes_number;
+
+        // Votes' identifier list for each voter
+        mapping(address => uint[]) voter_votes_id;
 
         // Voters submitting True vote
         address[] T_voters;
@@ -126,7 +132,7 @@ contract ASTRAEA {
         // Certifiers sealed vote
         mapping (address => bytes32) certifier_sealedVote;
 
-        // Certifiers vote and stake (no need to divide it in multiple maps like for the voters since the vote is not sealed)
+        // Certifiers vote and stake
         mapping (address => mapping (VoteOption => uint256)) certifier_stake;
 
         // Certifiers submitting True certification
@@ -180,6 +186,14 @@ contract ASTRAEA {
 
     function get_number_voted_propositions() public view returns (uint256){
         return voted_propositions[msg.sender].length;
+    }
+
+    function get_voter_votes_number_by_prop_id(uint256 _prop_id) public view returns(uint8){
+        return proposition[_prop_id].voter_votes_number[msg.sender];
+    }
+
+    function get_vote_id_by_prop_id(uint256 _prop_id, uint8 index) public view returns(uint256){
+        return proposition[_prop_id].voter_votes_id[msg.sender][index];
     }
 
     function get_number_submitted_propositions() public view returns (uint256){
@@ -281,7 +295,7 @@ contract ASTRAEA {
     }
 
     // Vote for the proposition you received
-    function vote(uint256 _prop_id, bytes32 _hashed_vote) public {
+    function vote(uint256 _prop_id, bytes32 _hashed_vote, uint _vote_id) public {
         require (ask_to_vote_stake[msg.sender][_prop_id] > 0, "Not a voter of that proposition! Make a request");
         // Get the proposition
         Proposition storage prop = proposition[_prop_id];
@@ -290,8 +304,10 @@ contract ASTRAEA {
         uint256 stake = ask_to_vote_stake[msg.sender][_prop_id];
         ask_to_vote_stake[msg.sender][_prop_id] = 0;
         prop.voters_list.push(msg.sender);
-        prop.voter_sealedVote[msg.sender] = _hashed_vote;
-        prop.voter_unsealedVote[msg.sender] = VoteOption.Unknown;
+        prop.voter_sealedVote[msg.sender][_vote_id] = _hashed_vote;
+        prop.voter_unsealedVote[msg.sender][_vote_id] = VoteOption.Unknown;
+        prop.voter_votes_number[msg.sender] += 1;
+        prop.voter_votes_id[msg.sender].push(_vote_id);
         prop.voter_stake[msg.sender][VoteOption.Unknown] = stake;
         prop.voters_stake_pool += stake;
         // If the max stake for a proposition is reached, the voting phase is closed
@@ -303,20 +319,21 @@ contract ASTRAEA {
     }
 
     // Reveal the voter's vote for a proposition
-    function reveal_voter_sealed_vote(uint256 _prop_id, string memory _salt) public {
+    function reveal_voter_sealed_vote(uint256 _prop_id, uint _vote_id, string memory _salt) public {
         Proposition storage prop = proposition[_prop_id];
         require(prop.status == PropositionStatus.Reveal, "Proposition is not in the reveal phase!");
-        bytes32 hashed_vote = prop.voter_sealedVote[msg.sender];
+        bytes32 hashed_vote = prop.voter_sealedVote[msg.sender][_vote_id];
+        require(hashed_vote != "", "Vote already revealed!");
         uint stake = prop.voter_stake[msg.sender][VoteOption.Unknown];
         if(hashed_vote == keccak256(abi.encodePacked(_prop_id, true, _salt))){
             // Vote was true
-            prop.voter_unsealedVote[msg.sender] = VoteOption.True;
+            prop.voter_unsealedVote[msg.sender][_vote_id] = VoteOption.True;
             prop.T_voters.push(msg.sender);
             prop.votes[VoteOption.True] += stake;
             prop.voter_stake[msg.sender][VoteOption.True] += stake;
         }else if(hashed_vote == keccak256(abi.encodePacked(_prop_id, false, _salt))){
             // Vote was false
-            prop.voter_unsealedVote[msg.sender] = VoteOption.False;
+            prop.voter_unsealedVote[msg.sender][_vote_id] = VoteOption.False;
             prop.F_voters.push(msg.sender);
             prop.votes[VoteOption.False] += stake;
             prop.voter_stake[msg.sender][VoteOption.False] += stake;
@@ -324,6 +341,7 @@ contract ASTRAEA {
             revert("Wrong salt!!!");
         }
         prop.voter_stake[msg.sender][VoteOption.Unknown] = 0;
+        prop.voter_sealedVote[msg.sender][_vote_id] = "";
         if(prop.F_voters.length + prop.T_voters.length == prop.voters_list.length){
             elaborate_result_proposition(_prop_id);
         }
