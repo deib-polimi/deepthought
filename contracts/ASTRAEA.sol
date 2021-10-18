@@ -52,7 +52,7 @@ contract ASTRAEA {
     mapping (address => uint256[]) submitted_propositions;
 
     constructor(){
-        closing_voting_stake = 100;
+        closing_voting_stake = 10;
         cert_target = 10;
         voter_stake_max = 10;
         certifier_stake_min = 20;
@@ -172,6 +172,10 @@ contract ASTRAEA {
 
     function get_prop_content_by_prop_id(uint256 _prop_id) public view returns (bytes32){
         return proposition[_prop_id].content;
+    }
+
+    function get_prop_bounty_by_prop_id(uint256 _prop_id) public view returns (uint256){
+        return proposition[_prop_id].bounty;
     }
 
     function get_number_voted_propositions() public view returns (uint256){
