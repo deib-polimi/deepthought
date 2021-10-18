@@ -99,8 +99,11 @@ contract ASTRAEA {
         // List of the addresses who voted
         address[] voters_list;
 
-        // Voters stake
+        // Voters' stake (after reveal)
         mapping(address => mapping (VoteOption => uint256)) voter_stake;
+
+        // Voters' stake of each vote (before reveal)
+        mapping(address => mapping(uint256 => uint256)) voter_stake_per_vote;
 
         // Voters sealed vote (it supports multiple votes for a proposition)
         mapping(address => mapping(uint => bytes32)) voter_sealedVote;
@@ -308,7 +311,7 @@ contract ASTRAEA {
         prop.voter_unsealedVote[msg.sender][_vote_id] = VoteOption.Unknown;
         prop.voter_votes_number[msg.sender] += 1;
         prop.voter_votes_id[msg.sender].push(_vote_id);
-        prop.voter_stake[msg.sender][VoteOption.Unknown] = stake;
+        prop.voter_stake_per_vote[msg.sender][_vote_id] = stake;
         prop.voters_stake_pool += stake;
         // If the max stake for a proposition is reached, the voting phase is closed
         if (prop.voters_stake_pool >= closing_voting_stake){
@@ -324,7 +327,7 @@ contract ASTRAEA {
         require(prop.status == PropositionStatus.Reveal, "Proposition is not in the reveal phase!");
         bytes32 hashed_vote = prop.voter_sealedVote[msg.sender][_vote_id];
         require(hashed_vote != "", "Vote already revealed!");
-        uint stake = prop.voter_stake[msg.sender][VoteOption.Unknown];
+        uint stake = prop.voter_stake_per_vote[msg.sender][_vote_id];
         if(hashed_vote == keccak256(abi.encodePacked(_prop_id, true, _salt))){
             // Vote was true
             prop.voter_unsealedVote[msg.sender][_vote_id] = VoteOption.True;
@@ -340,7 +343,7 @@ contract ASTRAEA {
         }else{
             revert("Wrong salt!!!");
         }
-        prop.voter_stake[msg.sender][VoteOption.Unknown] = 0;
+        prop.voter_stake_per_vote[msg.sender][_vote_id] = 0;
         prop.voter_sealedVote[msg.sender][_vote_id] = "";
         if(prop.F_voters.length + prop.T_voters.length == prop.voters_list.length){
             elaborate_result_proposition(_prop_id);
@@ -461,9 +464,11 @@ contract ASTRAEA {
         // voters
         for (uint i = 0; i < prop.voters_list.length; i++){
             addr = prop.voters_list[i];
-            reward = reward_voter(addr, _prop_id);
-            prop.voter_earned_reward[addr] = reward;
-            balance[addr] += reward;
+            if (prop.voter_earned_reward[addr] == 0){
+                reward = reward_voter(addr, _prop_id);
+                prop.voter_earned_reward[addr] = reward;
+                balance[addr] += reward;
+            }
 
         }
 

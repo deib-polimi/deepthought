@@ -1,4 +1,17 @@
 import ASTRAEA_setup
+import random
+import string
+
+def create_id():
+    id = ""
+
+    for i in range(6):
+        id += random.choice(string.digits)
+
+    id_list = list(id)
+    random.SystemRandom().shuffle(id_list)
+    id = ''.join(id_list)
+    return id
 
 def get_info(web3, contract):
 
@@ -121,7 +134,7 @@ def main():
                                 prop_id = int(input('Proposition id: '))
                                 salt = bytes(input('Insert your salt to reveal your vote (YOU HAD TO REMEMBER IT!): '), 'utf-8')
 
-                                contract.functions.reveal_certifier_hashed_vote(prop_id, salt).transact()
+                                contract.functions.reveal_certifier_sealed_vote(prop_id, salt).transact()
 
                     elif insert == 3: # GO BACK
 
@@ -157,28 +170,35 @@ def main():
 
                         salt = input('Insert your salt (REMEMBER IT!): ')
 
-                        hashedVote = web3.solidityKeccak(['uint256','bool','string'], [prop_id, vote, salt])
+                        hashedVote = web3.solidityKeccak(['uint256', 'bool', 'string'], [prop_id, vote, salt])
 
-                        contract.functions.vote(prop_id, hashedVote).transact()
+                        vote_id = int(create_id())
+
+                        contract.functions.vote(prop_id, hashedVote, vote_id).transact()
                         print("Nice! your vote has been recorded")
 
                     elif insert == 2: # VOTED STATUS
-
+                        prop_list = []
                         voted_prop_num = contract.functions.get_number_voted_propositions().call()
                         reveal = False
-                        print('\nPROPOSITION ID -> STATUS')
+                        index = 0
+                        print('\nPROPOSITION ID -> STATUS\nVOTE ID')
 
                         for i in range(0, voted_prop_num):
                             prop_id = int(contract.functions.get_voted_prop_id(i).call())
+                            for x in prop_list:
+                                if x == prop_id:
+                                    index += 1
+                            prop_list.append(prop_id)
+                            vote_id = int(contract.functions.get_vote_id_by_prop_id(prop_id, index).call())
                             status = str(contract.functions.get_prop_state(prop_id).call(), 'utf-8')
-
                             reveal = status.startswith('Reveal') or reveal
 
-                            out = str(prop_id) + ' -> ' + status
+                            out = 'Proposition: ' + str(prop_id) + ' -> ' + status + '\nVote ID: ' + str(vote_id)
                             if status.startswith('Close'):
                                 result = str(contract.functions.get_outcome(prop_id).call(), 'utf-8')
                                 earned = str(int(contract.functions.get_reward_voter_by_prop_id(prop_id).call()))
-                                out += ' (result: ' + result + '), (earned: ' + earned + ' wei)'
+                                out += '\n(result: ' + result + '), (earned: ' + earned + ' wei)'
 
                             print(out)
 
@@ -186,9 +206,10 @@ def main():
                             insert = input('Do you want to reveal your vote about the "Reveal" proposition?(y/n): ')
                             if insert == 'y':
                                 prop_id = int(input('Proposition id: '))
+                                vote_id = int(input('Vote id: '))
                                 salt = bytes(input('Insert your salt to reveal your vote (YOU HAD TO REMEMBER IT!): '), 'utf-8')
 
-                                contract.functions.reveal_voter_sealed_vote(prop_id, salt).transact()
+                                contract.functions.reveal_voter_sealed_vote(prop_id, vote_id, salt).transact()
 
                     elif insert == 3: # GO BACK
 
