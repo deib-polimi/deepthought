@@ -4,6 +4,7 @@ pragma solidity  >=0.8.0 <0.9.0;
 /*
  * @title: ASTRAEA
  * @dev:   Voting-based Oracle with the aim of verifying propositions
+ * SPDX-License-Identifier: UNLICENSED
  */
 contract ASTRAEA {
 
@@ -18,7 +19,7 @@ contract ASTRAEA {
     // Minimum certifier stake
     uint certifier_stake_min;
 
-    // Reward pool for paying certifiers, splitted into True and False (Rt)
+    // Reward pool for paying certifiers, splitted into True and False (Rt/Rf)
     mapping (VoteOption => uint) cert_reward_pool;
 
     // Number of certification the reward_pool should have founds for (Tao)
@@ -51,11 +52,15 @@ contract ASTRAEA {
     // Voter > list of submitted proposition
     mapping (address => uint256[]) submitted_propositions;
 
-    constructor(){
-        closing_voting_stake = 10;
+    constructor(uint _voter_stake_max, uint _cert_stake_min, uint _close_stake, uint _tao){
+        /*closing_voting_stake = 10;
         cert_target = 10;
         voter_stake_max = 10;
-        certifier_stake_min = 20;
+        certifier_stake_min = 20;*/
+        closing_voting_stake = _close_stake;
+        cert_target = _tao;
+        voter_stake_max = _voter_stake_max;
+        certifier_stake_min = _cert_stake_min;
     }
 
 

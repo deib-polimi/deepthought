@@ -2,6 +2,7 @@ import ASTRAEA_setup
 import random
 import string
 
+
 def create_id():
     id = ""
 
@@ -13,10 +14,12 @@ def create_id():
     id = ''.join(id_list)
     return id
 
+
 def get_info(web3, contract):
 
     print('\nYour account info: ')
     print('Balance: ' + str(web3.fromWei(int(contract.functions.get_balance().call()), 'ether')) + ' ETH')
+
 
 def main():
 
