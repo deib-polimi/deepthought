@@ -319,9 +319,9 @@ contract ASTRAEA {
         prop.voter_stake_per_vote[msg.sender][_vote_id] = stake;
         prop.voters_stake_pool += stake;
         // If the max stake for a proposition is reached, the voting phase is closed
-        if (prop.voters_stake_pool >= closing_voting_stake){
-            close_proposition(_prop_id);
-        }
+        //if (prop.voters_stake_pool >= closing_voting_stake){
+        //    close_proposition(_prop_id);
+        //}
 
         voted_propositions[msg.sender].push(_prop_id);
     }
@@ -428,8 +428,8 @@ contract ASTRAEA {
         distribute_reward(_prop_id);
     }
 
-     // Change status of proposition Open > VotingClosed
-    function close_proposition(uint256 _prop_id) internal {
+     // Change status of proposition Open > VotingClosed (should be internal, but is switch on public for test reason)
+    function close_proposition(uint256 _prop_id) public {
         Proposition storage prop = proposition[_prop_id];
         require(prop.status == PropositionStatus.Open, "Should be Open");
         prop.status = PropositionStatus.Reveal;
@@ -487,7 +487,7 @@ contract ASTRAEA {
 
         }
 
-        // submitter: if the outcome is unknown, it gets back the bounty
+        // submitter: if the outcome is unknown, he gets back the bounty
         balance[prop.submitter] += (prop.outcome == VoteOption.Unknown) ? prop.bounty : 0;
     }
 
