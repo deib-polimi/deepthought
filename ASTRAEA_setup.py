@@ -25,15 +25,11 @@ def init():
 
 
 ''' Use it to pass the parameters to the constructor '''
-def set(closing_voting_stake, cert_target, voter_stake_max, certifier_stake_min):
+def set(voter_stake_max, cert_target, closing_voting_stake, certifier_stake_min):
     # truffle development blockchain address
 
     # Client instance to interact with the blockchain
     web3 = Web3(HTTPProvider(ganache_blockchain_address,  request_kwargs={'timeout': 60}))
-    closing_voting_stake = 100
-    cert_target = 10
-    voter_stake_max = 50
-    certifier_stake_min = 100
 
     with open(compiled_contract_path) as file:
         contract_json = json.load(file)  # load contract info as JSON
@@ -43,7 +39,7 @@ def set(closing_voting_stake, cert_target, voter_stake_max, certifier_stake_min)
     # Fetch deployed contract reference
     contract = web3.eth.contract(bytecode=contract_bytecode, abi=contract_abi)
     web3.eth.defaultAccount = web3.eth.accounts[0]
-    tx_hash = contract.constructor(closing_voting_stake, cert_target, voter_stake_max, certifier_stake_min).transact()
+    tx_hash = contract.constructor(voter_stake_max, cert_target, closing_voting_stake, certifier_stake_min).transact()
     tx_receipt = web3.eth.waitForTransactionReceipt(tx_hash)
     address = tx_receipt.contractAddress
     contract = web3.eth.contract(address=address, abi=contract_abi)
