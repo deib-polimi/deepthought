@@ -1,5 +1,7 @@
 '''
-TEST STEPS:
+@Author: Italiano Lorenzo
+
+@TEST STEPS:
 1) start ganache-cli: ganache-cli --a 100 -p 7545
 2) start ASTRAEA_TEST.py: py ASTRAEA_test.py
 '''
@@ -8,6 +10,8 @@ import ASTRAEA_setup
 import random
 import string
 from time import time
+import csv
+from tqdm import tqdm
 
 
 def create_id(n):
@@ -26,9 +30,9 @@ def main():
     start = time()
 
     n_prop = 100
-    voters = 100
-    adv_control = 0.25
-    accuracy = 0.95
+    voters = 20
+    adv_control = 0
+    accuracy = 0.8
     prop_list = []
     voters_salt = []
     voters_vote = []
@@ -49,24 +53,24 @@ def main():
         contract.functions.subscribe().transact({'from': voter})
 
     ''' propositions' submission '''
-    print("Submitting the propositions..\n")
+    print("\nSubmitting the propositions..")
     content = "The meaning of life is 42"
 
     # create n propositions
-    for i in range(n_prop):
+    for i in tqdm(range(n_prop)):
         prop_id = create_id(8)
         prop_list.append(prop_id)
         contract.functions.submit_proposition(prop_id, bytes(content, 'utf-8'), 100).transact({'from': submitter})
         # print("Prop ", i, " submitted: ", prop_id)
 
-    target_prop_id = prop_list[random.randint(0,n_prop-1)]
-    print("Target Proposition is:", target_prop_id)
+    target_prop_id = prop_list[random.randint(0, n_prop-1)]
+    print("\nTarget Proposition is:", target_prop_id)
 
     ''' voting phase '''
-    print("-- Voting Phase --\n")
+    print("\n-- Voting Phase --")
 
     # each voter as to vote a number of times equal to |P| in order to close al the proposition
-    for j in range(n_prop):
+    for j in tqdm(range(n_prop)):
 
         # honest voters
         for i in range(voters - int(adv_control*voters)):
@@ -82,7 +86,6 @@ def main():
             vote = random.random() < accuracy
             hashed_vote = web3.solidityKeccak(['uint256', 'bool', 'string'], [prop_id, vote, salt])
             contract.functions.vote(prop_id, hashed_vote, vote_id).transact({'from': voter})
-            # print("Voter ", i, " has voted for the ", j + 1, " time(s)")
 
         # adversarial voters
         for i in range(voters - int(adv_control*voters), voters):
@@ -97,9 +100,8 @@ def main():
             voters_vote.append(vote_id)
             hashed_vote = web3.solidityKeccak(['uint256', 'bool', 'string'], [prop_id, False, salt])
             contract.functions.vote(prop_id, hashed_vote, vote_id).transact({'from': voter})
-            # print("Voter ", i, " has voted for the ", j + 1, " time(s)")
 
-        print("Votes submitted:", (j+1)*voters )
+        #print("Votes submitted:", (j+1)*voters )
 
     # CLOSE PROPOSITION IS NOW AUTOMATIC
     # makes the voter phase finish here (setup the contract)
@@ -112,17 +114,19 @@ def main():
     #print("Prop ", target_prop_id, " phase: ", str(contract.functions.get_prop_state(target_prop_id).call(), 'utf-8'))'''
 
     ''' Reveal Phase '''
-    print("-- Reveal Phase --\n")
-    for i in range(voters * n_prop):
-        voter = web3.eth.accounts[i % n_prop]
+    print("\n-- Reveal Phase --")
+    for i in tqdm(range(voters * n_prop)):
+        voter = web3.eth.accounts[i % voters]
         contract.functions.reveal_voter_sealed_vote(voters_prop_voted[i], voters_vote[i], voters_salt[i]).transact({'from': voter})
-        #print("Voter ", i, " has revealed")
+#        print("Revealing vote:", i)
+        #if i % 1000 == 0:
+         #   print("Revealing vote:", i)
 
     end = time()
 
     ''' Check how many propositions have been corrupted '''
     print("Counting the votes..\n")
-    for i in range(n_prop):
+    for i in tqdm(range(n_prop)):
         outcome = str(contract.functions.get_outcome(prop_list[i]).call(), 'utf-8')
         if "False" in outcome:
             corrupted_prop += 1
@@ -131,9 +135,24 @@ def main():
     elapsed_time = end-start
 
     print("-- RESULTS --\n")
+    print("Propositions:", n_prop)
+    print("Voters:", voters)
+    print(f"Adversarial Control: {adv_control*100}%")
+    print(f"Accuracy Voters: {accuracy*100}%")
     print("Target Proposition Outcome: ", outcome)
     print("Proposition Corrupted: ", corrupted_prop, "/", n_prop)
     print("Elapsed Time: ", elapsed_time)
+
+    ''' save in results.csv '''
+
+    #header = ['voters', 'propositions', 'accuracy', 'adv_control', 'prop_corrupted', 'target_corrupted', 'elapsed_time']
+
+    data = [voters, n_prop, accuracy, adv_control, corrupted_prop, 0 if outcome else 1, round(elapsed_time, 2)]
+
+    with open('results.csv', 'a', encoding='UTF8', newline='') as f:
+        writer = csv.writer(f)
+        #writer.writerow(header)
+        writer.writerow(data)
 
 
 if __name__ == "__main__":
