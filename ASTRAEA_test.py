@@ -12,6 +12,16 @@ import string
 from time import time
 import csv
 from tqdm import tqdm
+import subprocess
+import atexit
+
+process = 0
+
+
+def exit_handler():
+    print("Killing all the processes..")
+    if process.poll() is None:
+        process.kill()
 
 
 def create_id(n):
@@ -27,11 +37,21 @@ def create_id(n):
 
 
 def main():
+    global process
+    atexit.register(exit_handler)
+
+    print("Starting Ganache..\n")
+
+    process = subprocess.Popen(["ganache-cli", "-a", "100", "-p", "7545"], shell=True, stdout=subprocess.DEVNULL)
     start = time()
 
+    print("""    ,.   .---. ,--,--'.-,--.     ,.  .-,--.     ,.  
+   / |   \___  `- |    `|__/    / |   `\__     / |  
+  /~~|-.     \  , |    )| \    /~~|-.  /      /~~|-.
+,'   `-' `---'  `-'    `'  ` ,'   `-' '`--' ,'   `-'""")
     n_prop = 100
     voters = 20
-    adv_control = 0
+    adv_control = 0.25
     accuracy = 0.8
     prop_list = []
     voters_salt = []
@@ -147,12 +167,16 @@ def main():
 
     #header = ['voters', 'propositions', 'accuracy', 'adv_control', 'prop_corrupted', 'target_corrupted', 'elapsed_time']
 
-    data = [voters, n_prop, accuracy, adv_control, corrupted_prop, 0 if outcome else 1, round(elapsed_time, 2)]
+    data = [voters, n_prop, accuracy, adv_control, corrupted_prop, 1 if "False" in outcome else 0, round(elapsed_time, 2)]
 
     with open('results.csv', 'a', encoding='UTF8', newline='') as f:
         writer = csv.writer(f)
         #writer.writerow(header)
         writer.writerow(data)
+
+    process.terminate()
+    if process.poll() is None:
+        process.kill()
 
 
 if __name__ == "__main__":
