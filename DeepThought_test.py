@@ -2,8 +2,7 @@
 @Author: Italiano Lorenzo and Di Gennaro Marco
 
 @TEST STEPS:
-1) start ganache-cli: ganache-cli --a 100 -p 7545
-2) start DEEP_THOUGHT_TEST.py: py DeepThought_test.py
+start DeepThought_TEST.py: py DeepThought_test.py
 '''
 
 import DeepThought_setup
@@ -38,10 +37,12 @@ def create_id(n):
 
 
 def main():
-    print("""    ,.   .---. ,--,--'.-,--.     ,.  .-,--.     ,.  
-   / |   \___  `- |    `|__/    / |   `\__     / |  
-  /~~|-.     \  , |    )| \    /~~|-.  /      /~~|-.
-,'   `-' `---'  `-'    `'  ` ,'   `-' '`--' ,'   `-'""")
+    print('''\n8""""8               ""8""                                    
+8    8 eeee eeee eeeee 8   e   e eeeee e   e eeeee e   e eeeee
+8e   8 8    8    8   8 8e  8   8 8  88 8   8 8   8 8   8   8  
+88   8 8eee 8eee 8eee8 88  8eee8 8   8 8e  8 8e    8eee8   8e 
+88   8 88   88   88    88  88  8 8   8 88  8 88 "8 88  8   88 
+88eee8 88ee 88ee 88    88  88  8 8eee8 88ee8 88ee8 88  8   88 \n''')
     global process
     atexit.register(exit_handler)
     for k in range(1):
