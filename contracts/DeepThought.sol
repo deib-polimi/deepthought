@@ -43,29 +43,17 @@ contract DeepThought {
     
     /* ### PARAMETERS OF THE ORACLE ### */
 
-    // Number of users subscribed in the oracle
-    uint256 user_num;
-
     // Number of vote required to close a proposition
     uint256 n_max_votes;
     
     // Minimum value of the bounty
     uint256 min_bounty;
-
-    // Minimum value of the bounty for certifiers
-    uint256 min_bounty_cert;
-
-    // Minimum value of the bounty for voters
-    uint256 min_bounty_voters;
     
     // Pool of money of Unknown proposition
     uint256 lost_reward_pool;
     
     // Maximum reputation value for a voter
     uint256 max_reputation;
-
-    // Current max reputation value among the oracle's users
-    uint256 current_max_reputation;
 
     // Parameter for vote weight calculation
     uint256 alfa;
@@ -122,14 +110,20 @@ contract DeepThought {
         // The status of the proposition Open > votingClosed > RevealClosed
         PropositionStatus status;
 
+        // VoteOption > sum of votes weight for the specific VoteOption
         mapping (VoteOption => uint256) partial_outcome;
 
         // Decided outcome
         VoteOption outcome;
 
+        // Array of votes
         Vote[] votes;
 
+        // voter > index of the voter's votes in votes array 
         mapping (address => uint256[]) voted_indexes;
+
+        // voter > reward earned on the proposition
+        mapping (address => uint256) voter_earned_reward;
         
         // Total certifing value for each option
         mapping (VoteOption => uint256) certification;
@@ -142,9 +136,6 @@ contract DeepThought {
 
         // The certifier's vote hashed, before the revealing phase
         mapping (address => bytes32) certifier_hashedVote;
-
-        // voter > reward earned on the proposition
-        mapping (address => uint256) voter_earned_reward;
 
         // certifier > reward earned on the proposition
         mapping (address => uint256) certifier_earned_reward;
@@ -172,20 +163,19 @@ contract DeepThought {
 
     /* ### CONSTRUCTORS ### */
     
-    constructor(){
-        n_max_votes = 4;
+    constructor(uint256 _n_max_votes, uint256 _alfa, uint256 _beta){
+        //n_max_votes = 20;
+        n_max_votes = _n_max_votes;
         
         max_reputation = 100;
         
         lost_reward_pool = 0;
         
-        alfa = 70;
+        //alfa = 70;
+        alfa = _alfa;
         
-        beta = 30;
-
-        current_max_reputation = 1;
-
-        user_num = 0;
+        //beta = 30;
+        beta = _beta;
 
         to_reward_perc = 50;
 
@@ -330,18 +320,19 @@ contract DeepThought {
     // Subscribe to the service and put founds in it
     function subscribe() public{
         require(balance[msg.sender] == 0, "Already subscribed!");
+
         balance[msg.sender] = msg.sender.balance;
         reputation[msg.sender] = 1;
-
-        user_num++;
     }
     
     // Submit a new proposition
     function submit_proposition(uint256 _prop_id, bytes32 _prop_content, uint256 _bounty) public {
         require (_bounty >= min_bounty, "Bounty is too low, check the minimum bounty");
         require (balance[msg.sender] >= _bounty, "Not enough money to submit");
+
         propositions_list.push(_prop_id);
         Proposition storage prop = proposition[_prop_id];
+
         prop.id =_prop_id;
         prop.submitter = msg.sender;
         prop.content = _prop_content;
@@ -360,6 +351,7 @@ contract DeepThought {
         require (balance[msg.sender] >= _stake, "Not enough money to certify");
         require (_stake >= compute_min_certifing_stake(msg.sender), "The stake is not enough for your reputation");
         require (_stake <= compute_max_certifing_stake(), "The stake is too high");
+
         ask_to_certify_stake[msg.sender] = _stake;
         balance[msg.sender] -= _stake;
     }
@@ -367,8 +359,10 @@ contract DeepThought {
     // A certifier send his vote for a proposition
     function certify_proposition(uint256 _prop_id, bytes32 _hashed_vote) public {
         require (ask_to_certify_stake[msg.sender] > 0, "Not a certifier! Make a request");
+
         // Get the chosen proposition
         Proposition storage prop = proposition[_prop_id];
+
         // Increment the vote and move the stake to the proposition chosen
         prop.certifiers_list.push(msg.sender);
         uint256 stake = ask_to_certify_stake[msg.sender];
@@ -382,7 +376,9 @@ contract DeepThought {
     // reveal the certifier's vote for a proposition
     function reveal_certifier_hashed_vote(uint256 _prop_id, string memory _salt) public {
         Proposition storage prop = proposition[_prop_id];
+
         require(prop.status == PropositionStatus.VotingClose, "Proposition is not in the reveal phase!");
+
         bytes32 hashed_vote = prop.certifier_hashedVote[msg.sender];
 
         if(hashed_vote == keccak256(abi.encodePacked(_prop_id, true, _salt))){
@@ -405,6 +401,7 @@ contract DeepThought {
         require (_stake >= compute_min_voting_stake(msg.sender), "The stake is not enough for your reputation");
         require (_stake <= compute_max_voting_stake(), "The stake is too high");
         require (balance[msg.sender] >= _stake, "Not enough money to vote");
+
         uint256 prop_id = find_random_proposition();
         ask_to_vote_stake[msg.sender][prop_id] = _stake;
         balance[msg.sender] -= _stake;
@@ -416,6 +413,7 @@ contract DeepThought {
     // Vote for the proposition you received
     function vote(uint256 _prop_id, bytes32 _hashed_vote, uint256 _predictionPercent) public {
         require (ask_to_vote_stake[msg.sender][_prop_id] > 0, "Not a voter of that proposition! Make a request");
+
         // Get the proposition
         Proposition storage prop = proposition[_prop_id];
         require(prop.status == PropositionStatus.Open, "Voting phase is closed!");
@@ -494,7 +492,7 @@ contract DeepThought {
         Proposition storage prop = proposition[_prop_id];
         require(prop.status == PropositionStatus.VotingClose, "Should be Reveal");
 
-        //check if all the certifiers have revealed, otherwise take their stake and put it in the lost_reward_pool
+        // Check if all the certifiers have revealed, otherwise take their stake and put it in the lost_reward_pool
         for(uint i=0; i< prop.certifiers_list.length; i++){
             uint stake = prop.certifier_stake[prop.certifiers_list[i]][VoteOption.Unknown];
             if (stake > 0){
@@ -502,6 +500,8 @@ contract DeepThought {
                 prop.certifier_stake[prop.certifiers_list[i]][VoteOption.Unknown] = 0;
             }
         }
+
+        //Set proposition state to RevealingClose (Closed)
         prop.status = PropositionStatus.RevealingClose;
     }
 
@@ -637,20 +637,22 @@ contract DeepThought {
 
     // Create the scoreboard
     function create_scoreboard(uint256 _prop_id) internal {
-
         Proposition storage prop = proposition[_prop_id];
+
         require(prop.status == PropositionStatus.RevealingClose, "Should be Close");
+
         address voter_addr;
+
         for(uint256 i = 0; i < prop.T_vote_indexes.length; i++){
            voter_addr = prop.votes[prop.T_vote_indexes[i]].voter;
            prop.votes[prop.T_vote_indexes[i]].score = assign_score(_prop_id, prop.votes[prop.T_vote_indexes[i]]);
-           insert_scoreboard(_prop_id, prop.votes[i]);
+           insert_scoreboard(_prop_id, prop.votes[prop.T_vote_indexes[i]]);
         }
 
         for(uint256 j = 0; j < prop.F_vote_indexes.length; j++){
            voter_addr = prop.votes[prop.F_vote_indexes[j]].voter;
            prop.votes[prop.F_vote_indexes[j]].score = assign_score(_prop_id, prop.votes[prop.F_vote_indexes[j]]);
-           insert_scoreboard(_prop_id, prop.votes[j]);
+           insert_scoreboard(_prop_id, prop.votes[prop.F_vote_indexes[j]]);
         }
     } 
 
@@ -778,16 +780,23 @@ contract DeepThought {
         uint256 num;
         if(this_vote.vote_unhashed == VoteOption.True){
             num = _prop.T_vote_indexes.length;
+            if(num == 1){
+                return 0;
+            }
             for(i = 0; i < num; i++){
                 tot += _prop.votes[_prop.T_vote_indexes[i]].prediction;
             }
         }else{
             num = _prop.F_vote_indexes.length;
+            if(num == 1){
+                return 100;
+            }
             for(i = 0; i < num; i++){
                tot += _prop.votes[_prop.F_vote_indexes[i]].prediction;
             }
         }
         tot -= this_vote.prediction;
+        num -= 1;
         require(num != 0 , "Division by zero!");
         return tot/num; 
     }
@@ -797,10 +806,6 @@ contract DeepThought {
         uint256 rep = reputation[_voter];
         if (rep < max_reputation) {
             reputation[_voter] += 1;
-        }
-
-        if(rep > current_max_reputation){
-            current_max_reputation = rep;
         }
     }
 

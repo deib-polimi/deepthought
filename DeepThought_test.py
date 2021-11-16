@@ -13,7 +13,6 @@ import csv
 from tqdm import tqdm
 import subprocess
 import atexit
-import math
 
 process = 0
 
@@ -45,7 +44,7 @@ def main():
 88eee8 88ee 88ee 88    88  88  8 8eee8 88ee8 88ee8 88  8   88 \n''')
     global process
     atexit.register(exit_handler)
-    for k in range(1):
+    for k in range(6):
         print("Test n.", k+1)
         print("\nStarting Ganache..")
 
@@ -53,22 +52,35 @@ def main():
         sleep(5)
         start = time()
 
-        n_prop = 2
-        voters = 2
-        adv_control = 0.25
-        accuracy = 0.95
-        prop_list = []
-        voters_salt = []
-        voters_prop_voted = []
+        n_prop = 100
+        voters = 20
 
-        voter_revealed = {}
+        if(k % 2 == 0):
+            accuracy = 0.8
+        else:
+            accuracy = 0.95
+
+        if(k % 3 == 0):
+            adv_control = 0.25
+        elif(k % 3 == 1):
+            adv_control = 0.05
+        else:
+            adv_control = 0
+
+        # Smart Contract parameters
+        alfa = 70
+        beta = 30
+
+
+        prop_list = []
+        
 
         corrupted_prop = 0
 
         const_prediction_true = 77
         const_prediction_false = 33
 
-        web3, contract = DeepThought_setup.test_init()
+        web3, contract = DeepThought_setup.test_init(voters, alfa, beta)
         submitter = web3.eth.accounts[0]
 
         ''' subscription phase'''
@@ -88,6 +100,8 @@ def main():
             contract.functions.submit_proposition(prop_id, bytes(content, 'utf-8'), int(min_bounty * (10 ** 18))).transact({'from': submitter})
             # print("Prop ", i, " submitted: ", prop_id)
 
+        voter_to_prop_salts={v:{} for v in range(voters)}
+
         target_prop_id = prop_list[random.randint(0, n_prop-1)]
         print("\nTarget Proposition is:", target_prop_id)
 
@@ -105,15 +119,13 @@ def main():
                 voter = web3.eth.accounts[i]
                 tx_hash = contract.functions.voting_request(max_stake_voter).transact({'from': voter})
                 prop_id = int(web3.eth.waitForTransactionReceipt(tx_hash)['logs'][0]['data'], 16)
-                if prop_id not in voters_prop_voted:
-                    voters_prop_voted.append(prop_id)
-                    salt = str(create_id(5))
-                    voters_salt.append(salt)
-                else:
-                    index = voters_prop_voted.index(prop_id)
-                    salt = voters_salt[index]
-                    voters_prop_voted.append(prop_id)
-                    voters_salt.append(salt)
+
+                
+                salt = str(create_id(5))
+                if(prop_id not in voter_to_prop_salts[i].keys()):
+                    voter_to_prop_salts[i][prop_id] = []
+                voter_to_prop_salts[i][prop_id].append(salt)
+
                 vote = random.random() < accuracy
                 hashed_vote = web3.solidityKeccak(['uint256', 'bool', 'string'], [prop_id, vote, salt])
                 contract.functions.vote(prop_id, hashed_vote, (const_prediction_true if vote else const_prediction_false)).transact({'from': voter})
@@ -123,46 +135,23 @@ def main():
                 voter = web3.eth.accounts[i]
                 tx_hash = contract.functions.voting_request(max_stake_voter).transact({'from': voter})
                 prop_id = int(web3.eth.waitForTransactionReceipt(tx_hash)['logs'][0]['data'], 16)
-                if prop_id not in voters_prop_voted:
-                    voters_prop_voted.append(prop_id)
-                    salt = str(create_id(5))
-                    voters_salt.append(salt)
-                else:
-                    index = voters_prop_voted.index(prop_id)
-                    salt = voters_salt[index]
-                    voters_prop_voted.append(prop_id)
-                    voters_salt.append(salt)
+                
+                salt = str(create_id(5))
+                if(prop_id not in voter_to_prop_salts[i].keys()):
+                    voter_to_prop_salts[i][prop_id] = []
+                voter_to_prop_salts[i][prop_id].append(salt)
 
                 hashed_vote = web3.solidityKeccak(['uint256', 'bool', 'string'], [prop_id, False, salt])
                 contract.functions.vote(prop_id, hashed_vote, const_prediction_false).transact({'from': voter})
 
-            #print("Votes submitted:", (j+1)*voters )
-
-        # CLOSE PROPOSITION IS NOW AUTOMATIC
-        # makes the voter phase finish here (setup the contract)
-        #for i in range(n_prop):
-            #print("Closing Proposition ", i, ": ", prop_list[i])
-        #    contract.functions.close_proposition(prop_list[i]).transact({'from': submitter})
-            #print("Prop ", prop_list[i], " phase: ", str(contract.functions.get_prop_state(prop_list[i]).call(), 'utf-8'))
-        #print("Closing Target Proposition : ", target_prop_id)
-        #contract.functions.close_proposition(target_prop_id).transact({'from': submitter})
-        #print("Prop ", target_prop_id, " phase: ", str(contract.functions.get_prop_state(target_prop_id).call(), 'utf-8'))'''
 
         ''' Reveal Phase '''
         print("\n-- Reveal Phase --")
-        for i in tqdm(range(voters * n_prop)):
-            if(math.floor(i/voters) == 0):
-                voter_revealed[i % voters] = []
-            voter = web3.eth.accounts[i % voters]
-
-            if(prop_id not in voter_revealed[i % voters]):
-                n_times_voted = int(contract.functions.get_n_voted_times(prop_id).call({'from':voter}))
-                for j in range(n_times_voted):
-                    contract.functions.reveal_voter_hashed_vote(voters_prop_voted[i], voters_salt[i], j).transact({'from': voter})
-                voter_revealed[i % voters].append(prop_id)
-    #        print("Revealing vote:", i)
-            #if i % 1000 == 0:
-             #   print("Revealing vote:", i)
+        for i in tqdm(range(voters)):
+            voter = web3.eth.accounts[i]
+            for prop_id in voter_to_prop_salts[i].keys():
+                 for j in range(len(voter_to_prop_salts[i][prop_id])):
+                    contract.functions.reveal_voter_hashed_vote(prop_id, voter_to_prop_salts[i][prop_id][j], j).transact({'from': voter})
 
         end = time()
 
@@ -187,11 +176,11 @@ def main():
 
         ''' save in results.csv '''
 
-        #header = ['voters', 'propositions', 'accuracy', 'adv_control', 'prop_corrupted', 'target_corrupted', 'elapsed_time']
+        #header = ['voters', 'propositions', 'accuracy', 'adv_control', 'prop_corrupted', 'target_corrupted', 'elapsed_time','alfa','beta']
 
-        data = [voters, n_prop, accuracy, adv_control, corrupted_prop, 1 if "False" in outcome else 0, round(elapsed_time, 2)]
+        data = [voters, n_prop, accuracy, adv_control, corrupted_prop, 1 if "False" in outcome else 0, round(elapsed_time, 2), alfa, beta]
 
-        with open('results.csv', 'a', encoding='UTF8', newline='') as f:
+        with open('results_DeepThought.csv', 'a', encoding='UTF8', newline='') as f:
             writer = csv.writer(f)
             #writer.writerow(header)
             writer.writerow(data)

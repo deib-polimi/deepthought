@@ -1,0 +1,2 @@
+voters,propositions,accuracy,adv_control,prop_corrupted,target_corrupted,elapsed_time,alfa,beta
+5,100,0.8,0.25,9,0,392.55,70,30

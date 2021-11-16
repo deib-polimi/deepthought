@@ -193,7 +193,7 @@ def main():
                             if insert == 'y':
                                 prop_id = int(input('Proposition id: '))
                                 nu_times_voted = int(contract.functions.get_n_voted_times(prop_id).call())
-                                print('You have voted this proposition ' + str(nu_times_voted) + 'times!')
+                                print('You have voted this proposition ' + str(nu_times_voted) + ' times!')
                                 vote_id = int(input('Wich one do you want to reveal?: '))
                                 salt = bytes(input('Insert your salt to reveal your vote (YOU HAD TO REMEMBER IT!): '),'utf-8')
 
