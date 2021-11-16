@@ -83,9 +83,8 @@ def main():
                         for i in range(0, prop_num):
                             prop_id = int(contract.functions.get_prop_id_by_index(i).call())
                             content = str(contract.functions.get_prop_content_by_prop_id(prop_id).call(),'utf-8')
-                            certifiable = str(contract.functions.is_certifiable(prop_id).call(),'utf-8')
                             
-                            print(str(prop_id) + ' : ' + content + ' ' + certifiable)
+                            print(str(prop_id) + ' : ' + content)
 
                         prop_id = int(input('\nWhich proposition do you want to certify?\nProposition id: '))
 
@@ -195,7 +194,7 @@ def main():
                                 prop_id = int(input('Proposition id: '))
                                 salt = bytes(input('Insert your salt to reveal your vote (YOU HAD TO REMEMBER IT!): '),'utf-8')
 
-                                contract.functions.reveal_voter_sealed_vote(prop_id, salt).transact()
+                                contract.functions.reveal_voter_hashed_vote(prop_id, salt).transact()
 
                     elif insert == 3: #GO BACK
 
