@@ -48,9 +48,6 @@ contract DeepThought {
 
     // Number of vote required to close a proposition
     uint256 n_max_voters;
-
-    // Number of Certifiers allow to certify a proposition
-    uint256 n_max_certifiers;
     
     // Minimum value of the bounty
     uint256 min_bounty;
@@ -175,9 +172,7 @@ contract DeepThought {
     /* ### CONSTRUCTORS ### */
     
     constructor(){
-        n_max_voters = 2;
-
-        n_max_certifiers = 1;
+        n_max_voters = 10;
         
         max_reputation = 100;
         
@@ -242,15 +237,6 @@ contract DeepThought {
         require (ask_to_certify_stake[msg.sender] > 0, "Not a certifier! Make a request");
         require (_i < propositions_list.length, "Out of bound");
         return propositions_list[_i];
-    }
-
-    function is_certifiable(uint256 _prop_id) public view returns (bytes32){
-        if (proposition[_prop_id].certifiers_list.length == n_max_certifiers){
-            return bytes32("NOT CERTIFIABLE");
-        }
-        else{
-            return bytes32("CERTIFIABLE");
-        }
     }
 
     function get_prop_content_by_prop_id(uint256 _prop_id) public view returns (bytes32){
@@ -376,7 +362,6 @@ contract DeepThought {
     // A certifier send his vote for a proposition
     function certify_proposition(uint256 _prop_id, bytes32 _hashed_vote) public {
         require (ask_to_certify_stake[msg.sender] > 0, "Not a certifier! Make a request");
-        require (proposition[_prop_id].certifiers_list.length < n_max_certifiers, "Certifiers number limit already reached");
         // Get the chosen proposition
         Proposition storage prop = proposition[_prop_id];
         // Increment the vote and move the stake to the proposition chosen
@@ -399,13 +384,11 @@ contract DeepThought {
             // Vote was true
             prop.certifier_stake[msg.sender][VoteOption.True] += prop.certifier_stake[msg.sender][VoteOption.Unknown];
             prop.T_certifiers.push(msg.sender);
-            prop.certification[VoteOption.True] += normalize_certifier_vote_weight(msg.sender, _prop_id, true);
 
         }else if(hashed_vote == keccak256(abi.encodePacked(_prop_id, false, _salt))){
             // Vote was false
             prop.certifier_stake[msg.sender][VoteOption.True] += prop.certifier_stake[msg.sender][VoteOption.Unknown];
             prop.F_certifiers.push(msg.sender);
-            prop.certification[VoteOption.False] += normalize_certifier_vote_weight(msg.sender, _prop_id, false);
         }else{
             revert("Wrong salt!!!");
         }
@@ -451,7 +434,7 @@ contract DeepThought {
     }
 
     // Reveal the voter's vote for a proposition
-    function reveal_voter_sealed_vote(uint256 _prop_id, string memory _salt) public {
+    function reveal_voter_hashed_vote(uint256 _prop_id, string memory _salt) public {
         Proposition storage prop = proposition[_prop_id];
         require(prop.status == PropositionStatus.VotingClose, "Proposition is not in the reveal phase!");
         bytes32 hashed_vote = prop.voter_hashedVote[msg.sender];
@@ -459,13 +442,11 @@ contract DeepThought {
             // Vote was true
             prop.voter_unhashedVote[msg.sender] = VoteOption.True;
             prop.T_voters.push(msg.sender);
-            prop.vote[VoteOption.True] += normalize_voter_vote_weight(msg.sender, _prop_id);
 
         }else if(hashed_vote == keccak256(abi.encodePacked(_prop_id, false, _salt))){
             // Vote was false
             prop.voter_unhashedVote[msg.sender] = VoteOption.False;
             prop.F_voters.push(msg.sender);
-            prop.vote[VoteOption.False] += normalize_voter_vote_weight(msg.sender, _prop_id);
 
         }else{
             revert("Wrong salt!!!");
@@ -481,6 +462,8 @@ contract DeepThought {
     // This function has to be called to elaborate a proposition result. It calls other internal functions
     function elaborate_result_proposition(uint256 _prop_id) internal {
         stop_revealing_proposition(_prop_id);
+        elaborate_votes_weight(_prop_id);
+        elaborate_certifications_weight(_prop_id);
         set_outcome(_prop_id);
         create_scoreboard(_prop_id);
         distribute_rewards(_prop_id);
@@ -516,6 +499,34 @@ contract DeepThought {
             }
         }
         prop.status = PropositionStatus.RevealingClose;
+    }
+
+    function elaborate_votes_weight(uint256 _prop_id) internal{
+        Proposition storage prop = proposition[_prop_id];
+        require(prop.status == PropositionStatus.RevealingClose, "Should be Close");
+
+        for(uint i=0; i < prop.T_voters.length; i++){
+            prop.vote[VoteOption.True] += normalize_voter_vote_weight(prop.T_voters[i], _prop_id);
+        }
+
+        for(uint i=0; i < prop.F_voters.length; i++){
+            prop.vote[VoteOption.False] += normalize_voter_vote_weight(prop.F_voters[i], _prop_id);
+        }
+
+    }
+
+    function elaborate_certifications_weight(uint256 _prop_id) internal{
+        Proposition storage prop = proposition[_prop_id];
+        require(prop.status == PropositionStatus.RevealingClose, "Should be Close");
+
+        for(uint i=0; i < prop.T_certifiers.length; i++){
+            prop.certification[VoteOption.True] += normalize_certifier_vote_weight(prop.T_certifiers[i], _prop_id, true);
+        }
+
+        for(uint i=0; i < prop.F_certifiers.length; i++){
+            prop.certification[VoteOption.False] += normalize_certifier_vote_weight(prop.F_certifiers[i], _prop_id, false);
+        }
+        
     }
 
     // Distribute the reputation to all the voters
@@ -685,7 +696,7 @@ contract DeepThought {
         Proposition storage prop = proposition[prop_id];
         uint256 stake = prop.voter_stake[_voter];
         uint256 rep = reputation[_voter];
-        return alfa * sqrt(stake) + (100 - alfa) * (stake + stake*rep/max_reputation);
+        return alfa * sqrt(stake) + (100 - alfa) * (stake + stake**sqrt(rep));
     }
 
     // Calculate the vote weight of a certifier for a proposition
@@ -699,7 +710,7 @@ contract DeepThought {
         }
     
         uint256 rep = reputation[_certifier];
-        return alfa * sqrt(stake) + (100 - alfa) * (stake + stake*rep/max_reputation);
+        return alfa * sqrt(stake) + (100 - alfa) * (stake + stake*sqrt(rep));
     }
 
     // Calculate the reward of a voter for a proposition
