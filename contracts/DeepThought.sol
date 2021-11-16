@@ -47,7 +47,7 @@ contract DeepThought {
     uint256 user_num;
 
     // Number of vote required to close a proposition
-    uint256 n_max_voters;
+    uint256 n_max_votes;
     
     // Minimum value of the bounty
     uint256 min_bounty;
@@ -83,6 +83,22 @@ contract DeepThought {
     enum VoteOption {Unknown, True, False}
 
     enum PropositionStatus {Open, VotingClose, RevealingClose}
+
+    struct Vote {
+
+        address voter;
+
+        VoteOption vote_unhashed;
+
+        bytes32 vote_hashed;
+
+        uint256 stake;
+
+        uint256 prediction;
+
+        uint256 score;
+
+    }
     
     struct Proposition {
         // Unique proposition ID
@@ -106,41 +122,26 @@ contract DeepThought {
         // The status of the proposition Open > votingClosed > RevealClosed
         PropositionStatus status;
 
+        mapping (VoteOption => uint256) partial_outcome;
+
         // Decided outcome
         VoteOption outcome;
 
-        // Total voting value for each option
-        mapping (VoteOption => uint256) vote;
+        Vote[] votes;
+
+        mapping (address => uint256[]) voted_indexes;
         
         // Total certifing value for each option
         mapping (VoteOption => uint256) certification;
 
-        // Score for each voter
-        mapping(address => uint256) score;
-
         // List of the addresses who certified
         address[] certifiers_list;
-
-        // List of the addresses who voted
-        address[] voters_list;
 
         // Certifiers vote and stake (no need to divide it in multiple maps like for the voters since the vote is not sealed)
         mapping (address => mapping (VoteOption => uint256)) certifier_stake;
 
         // The certifier's vote hashed, before the revealing phase
         mapping (address => bytes32) certifier_hashedVote;
-        
-        // Voter > stake
-        mapping(address => uint256) voter_stake;
-
-        // The voter's vote hashed, before the revealing phase
-        mapping(address => bytes32) voter_hashedVote;
-
-        // Voters certainty for the outcome
-        mapping(address => uint256) prediction_certainty;
-
-        // The voter's vote unhashed, after the revealing phase
-        mapping(address => VoteOption) voter_unhashedVote;
 
         // voter > reward earned on the proposition
         mapping (address => uint256) voter_earned_reward;
@@ -149,13 +150,13 @@ contract DeepThought {
         mapping (address => uint256) certifier_earned_reward;
 
         // Scoreboard: importance order
-        address[] scoreboard;
+        Vote[] scoreboard;
 
         // Voters submitting vote T
-        address[] T_voters;
+        uint256[] T_vote_indexes;
         
         // Voters submitting vote F
-        address[] F_voters;
+        uint256[] F_vote_indexes;
         
         //Certifiers submitting cert T
         address[] T_certifiers;
@@ -172,7 +173,7 @@ contract DeepThought {
     /* ### CONSTRUCTORS ### */
     
     constructor(){
-        n_max_voters = 10;
+        n_max_votes = 4;
         
         max_reputation = 100;
         
@@ -303,6 +304,10 @@ contract DeepThought {
         return proposition[_prop_id].certifier_earned_reward[msg.sender];
     }
 
+    function get_n_voted_times(uint256 _prop_id) public view returns (uint256){
+        return proposition[_prop_id].voted_indexes[msg.sender].length;
+    }
+
     /* ### UTILITY FUNCTIONS ### */
 
     // Generate a pseudo-random number from 0 to _max
@@ -418,41 +423,40 @@ contract DeepThought {
         // Move the stake to the proposition and vote
         uint256 stake = ask_to_vote_stake[msg.sender][_prop_id];
         ask_to_vote_stake[msg.sender][_prop_id] = 0;
-        prop.voters_list.push(msg.sender);
-        prop.voter_hashedVote[msg.sender] = _hashed_vote;
-        prop.voter_unhashedVote[msg.sender] = VoteOption.Unknown;
-        prop.voter_stake[msg.sender] = stake;
-        prop.voters_stake_pool += stake;
-        prop.prediction_certainty[msg.sender] = _predictionPercent;
 
-        // If the n_max_voters number is reached the voting phase is closed
-        if (prop.voters_list.length >= n_max_voters){
-            close_proposition(_prop_id);
+        prop.votes.push(Vote(msg.sender, VoteOption.Unknown, _hashed_vote, stake, _predictionPercent, 0));
+        prop.voted_indexes[msg.sender].push(prop.votes.length - 1);
+        prop.voters_stake_pool += stake;
+
+        if(prop.voted_indexes[msg.sender].length == 1){
+            voted_propositions[msg.sender].push(_prop_id);
         }
 
-        voted_propositions[msg.sender].push(_prop_id);
+        if (prop.votes.length >= n_max_votes){
+            close_proposition(_prop_id);
+        }
     }
 
     // Reveal the voter's vote for a proposition
-    function reveal_voter_hashed_vote(uint256 _prop_id, string memory _salt) public {
+    function reveal_voter_hashed_vote(uint256 _prop_id, string memory _salt, uint256 index) public {
         Proposition storage prop = proposition[_prop_id];
         require(prop.status == PropositionStatus.VotingClose, "Proposition is not in the reveal phase!");
-        bytes32 hashed_vote = prop.voter_hashedVote[msg.sender];
+        bytes32 hashed_vote = prop.votes[prop.voted_indexes[msg.sender][index]].vote_hashed;
         if(hashed_vote == keccak256(abi.encodePacked(_prop_id, true, _salt))){
             // Vote was true
-            prop.voter_unhashedVote[msg.sender] = VoteOption.True;
-            prop.T_voters.push(msg.sender);
+            prop.votes[prop.voted_indexes[msg.sender][index]].vote_unhashed = VoteOption.True;
+            prop.T_vote_indexes.push(prop.voted_indexes[msg.sender][index]);
 
         }else if(hashed_vote == keccak256(abi.encodePacked(_prop_id, false, _salt))){
             // Vote was false
-            prop.voter_unhashedVote[msg.sender] = VoteOption.False;
-            prop.F_voters.push(msg.sender);
+            prop.votes[prop.voted_indexes[msg.sender][index]].vote_unhashed = VoteOption.False;
+            prop.F_vote_indexes.push(prop.voted_indexes[msg.sender][index]);
 
         }else{
             revert("Wrong salt!!!");
         }
 
-        if(prop.F_voters.length + prop.T_voters.length == prop.voters_list.length){
+        if(prop.F_vote_indexes.length + prop.T_vote_indexes.length == prop.votes.length){
             elaborate_result_proposition(_prop_id);
         }
     }
@@ -505,12 +509,12 @@ contract DeepThought {
         Proposition storage prop = proposition[_prop_id];
         require(prop.status == PropositionStatus.RevealingClose, "Should be Close");
 
-        for(uint i=0; i < prop.T_voters.length; i++){
-            prop.vote[VoteOption.True] += normalize_voter_vote_weight(prop.T_voters[i], _prop_id);
+        for(uint i=0; i < prop.T_vote_indexes.length; i++){
+            prop.partial_outcome[VoteOption.True] += normalize_voter_vote_weight(prop.votes[prop.T_vote_indexes[i]]);
         }
 
-        for(uint i=0; i < prop.F_voters.length; i++){
-            prop.vote[VoteOption.False] += normalize_voter_vote_weight(prop.F_voters[i], _prop_id);
+        for(uint i=0; i < prop.F_vote_indexes.length; i++){
+            prop.partial_outcome[VoteOption.False] += normalize_voter_vote_weight(prop.votes[prop.F_vote_indexes[i]]);
         }
 
     }
@@ -535,9 +539,9 @@ contract DeepThought {
         require(prop.status == PropositionStatus.RevealingClose, "Should be Close");
 
         // Change the voters reputation according to the proposition outcome
-        for(uint256 i = 0; i < prop.voters_list.length; i++){
-            address voter_addr = prop.voters_list[i];
-            if(prop.voter_unhashedVote[voter_addr] == prop.outcome){
+        for(uint256 i = 0; i < prop.votes.length; i++){
+            address voter_addr = prop.votes[i].voter;
+            if(prop.votes[i].vote_unhashed == prop.outcome){
                 increment_reputation(voter_addr);
             }else{
                 if(prop.outcome != VoteOption.Unknown){
@@ -572,9 +576,9 @@ contract DeepThought {
 
             balance[prop.submitter] += prop.bounty;
 
-            for(uint256 i = 0; i < prop.voters_list.length; i++){
-                balance[prop.voters_list[i]] += prop.voter_stake[prop.voters_list[i]];
-                prop.voters_stake_pool -= prop.voter_stake[prop.voters_list[i]];
+            for(uint256 i = 0; i < prop.votes.length; i++){
+                balance[prop.votes[i].voter] += prop.votes[i].stake;
+                prop.voters_stake_pool -= prop.votes[i].stake;
             }
             for(uint256 i = 0; i < prop.certifiers_list.length; i++){
                 lost_reward_pool += prop.certifier_stake[prop.certifiers_list[i]][VoteOption.True] + prop.certifier_stake[prop.certifiers_list[i]][VoteOption.False];
@@ -600,11 +604,11 @@ contract DeepThought {
 
             // Distribute rewards to voters
             for(uint256 i = 0; i < prop.scoreboard.length * to_reward_perc/100; i++){
-                address addr = prop.scoreboard[i];
-                uint256 voter_reward = compute_voter_reward(addr, _prop_id);
+                Vote storage vote_to_reward = prop.scoreboard[i];
+                uint256 voter_reward = compute_voter_reward(vote_to_reward);
                 if (voters_reward_pool > voter_reward){ //Check -> voter_reward_pool can't be negative
-                    balance[addr] += voter_reward;
-                    prop.voter_earned_reward[addr] += voter_reward;
+                    balance[vote_to_reward.voter] += voter_reward;
+                    prop.voter_earned_reward[vote_to_reward.voter] += voter_reward;
                     voters_reward_pool -= voter_reward;
                 }else break;
             }
@@ -623,8 +627,8 @@ contract DeepThought {
         require(prop.status == PropositionStatus.RevealingClose, "Should be Close");
         VoteOption voter_result = VoteOption.Unknown;
         VoteOption cert_result = VoteOption.Unknown;
-        if(prop.vote[VoteOption.True] > prop.vote[VoteOption.False]) voter_result = VoteOption.True;
-        if(prop.vote[VoteOption.False] > prop.vote[VoteOption.True]) voter_result = VoteOption.False;
+        if(prop.partial_outcome[VoteOption.True] > prop.partial_outcome[VoteOption.False]) voter_result = VoteOption.True;
+        if(prop.partial_outcome[VoteOption.False] > prop.partial_outcome[VoteOption.True]) voter_result = VoteOption.False;
         if(prop.certification[VoteOption.True] > prop.certification[VoteOption.False]) cert_result = VoteOption.True;
         if(prop.certification[VoteOption.False] > prop.certification[VoteOption.True]) cert_result = VoteOption.False;
 
@@ -633,29 +637,30 @@ contract DeepThought {
 
     // Create the scoreboard
     function create_scoreboard(uint256 _prop_id) internal {
+
         Proposition storage prop = proposition[_prop_id];
         require(prop.status == PropositionStatus.RevealingClose, "Should be Close");
         address voter_addr;
-        for(uint256 i = 0; i < prop.T_voters.length; i++){
-           voter_addr = prop.T_voters[i];
-           prop.score[voter_addr] = assign_score(_prop_id, voter_addr);
-           insert_scoreboard(_prop_id, voter_addr);
+        for(uint256 i = 0; i < prop.T_vote_indexes.length; i++){
+           voter_addr = prop.votes[prop.T_vote_indexes[i]].voter;
+           prop.votes[prop.T_vote_indexes[i]].score = assign_score(_prop_id, prop.votes[prop.T_vote_indexes[i]]);
+           insert_scoreboard(_prop_id, prop.votes[i]);
         }
 
-        for(uint256 j = 0; j < prop.F_voters.length; j++){
-           voter_addr = prop.F_voters[j];
-           prop.score[voter_addr] = assign_score(_prop_id, voter_addr);
-           insert_scoreboard(_prop_id, voter_addr);
+        for(uint256 j = 0; j < prop.F_vote_indexes.length; j++){
+           voter_addr = prop.votes[prop.F_vote_indexes[j]].voter;
+           prop.votes[prop.F_vote_indexes[j]].score = assign_score(_prop_id, prop.votes[prop.F_vote_indexes[j]]);
+           insert_scoreboard(_prop_id, prop.votes[j]);
         }
     } 
 
     // In-order voters insert inside scoreboard, from the Higher to the Lower
-    function insert_scoreboard(uint256 _prop_id, address _addr) internal{
+    function insert_scoreboard(uint256 _prop_id, Vote storage this_vote) internal{
         Proposition storage prop = proposition[_prop_id];
-        address to_write = _addr;
-        address store;
+        Vote storage to_write = this_vote;
+        Vote storage store;
             for(uint i=0; i < prop.scoreboard.length; i++){
-                if(prop.score[to_write] > prop.score[prop.scoreboard[i]]){
+                if(to_write.score > prop.scoreboard[i].score){
                     store = prop.scoreboard[i];
                     prop.scoreboard[i] = to_write;
                     to_write = store;
@@ -692,10 +697,9 @@ contract DeepThought {
     }
     
     // Calculate the vote weight of a voter for a proposition
-    function normalize_voter_vote_weight(address _voter, uint256 prop_id) internal view returns(uint256) {
-        Proposition storage prop = proposition[prop_id];
-        uint256 stake = prop.voter_stake[_voter];
-        uint256 rep = reputation[_voter];
+    function normalize_voter_vote_weight(Vote storage this_vote) internal view returns(uint256) {
+        uint256 stake = this_vote.stake;
+        uint256 rep = reputation[this_vote.voter];
         return alfa * sqrt(stake) + (100 - alfa) * (stake + stake**sqrt(rep));
     }
 
@@ -714,10 +718,9 @@ contract DeepThought {
     }
 
     // Calculate the reward of a voter for a proposition
-    function compute_voter_reward(address _voter, uint256 prop_id) internal view returns(uint256) {
-        Proposition storage prop = proposition[prop_id];
-        uint256 stake = prop.voter_stake[_voter];
-        uint256 rep = reputation[_voter];
+    function compute_voter_reward(Vote storage this_vote) internal view returns(uint256) {
+        uint256 stake = this_vote.stake;
+        uint256 rep = reputation[this_vote.voter];
         return (beta * (stake ** 2) + (100 - beta) * (stake + stake*rep/max_reputation))/100;
     }
 
@@ -737,7 +740,7 @@ contract DeepThought {
         uint256 voter_max_stake = compute_max_voting_stake();
         uint256 voter_min_stake = stake_function((1));
 
-        min_bounty = to_reward_perc * (beta * (voter_max_stake ** 2) + (100 - beta) * (voter_max_stake + voter_max_stake*max_reputation/max_reputation))/10000 * n_max_voters - voter_min_stake * n_max_voters;
+        min_bounty = to_reward_perc * (beta * (voter_max_stake ** 2) + (100 - beta) * (voter_max_stake + voter_max_stake*max_reputation/max_reputation))/10000 * n_max_votes - voter_min_stake * n_max_votes;
 
         // Compute the min bounty 
         
@@ -750,17 +753,17 @@ contract DeepThought {
     }
     
     // Generate the scoreboard for a proposition
-    function assign_score(uint _prop_id, address _voter) internal view returns(uint){
+    function assign_score(uint _prop_id, Vote storage this_vote) internal view returns(uint){
         Proposition storage prop = proposition[_prop_id];
         require(prop.status == PropositionStatus.RevealingClose, "Proposition status should be RevealingClose!");
         uint pred_score;
         uint info_score;
-        uint q = prop.prediction_certainty[_voter];
+        uint q = this_vote.prediction;
         VoteOption w = VoteOption.Unknown;
-        uint pred_mean = prediction_mean(_voter, _prop_id);
+        uint pred_mean = prediction_mean(this_vote, _prop_id);
         while(w == VoteOption.Unknown)
         {
-            w = prop.voter_unhashedVote[prop.voters_list[random(prop.voters_list.length)]];
+            w = prop.votes[random(prop.votes.length)].vote_unhashed;
         }
         pred_score = w == VoteOption.True ? 200 * q - q ** 2 : 10000 - q ** 2;
         info_score = pred_mean > q ? 10000 - (pred_mean - q) ** 2 : 10000 - (q - pred_mean) ** 2;
@@ -768,23 +771,23 @@ contract DeepThought {
     }
 
     // Produce the arithmetic mean without the prediction of the voter itself (should be a geometric mean)
-    function prediction_mean(address _voter, uint256 _prop_id) internal view returns(uint256){
+    function prediction_mean(Vote storage this_vote, uint256 _prop_id) internal view returns(uint256){
         Proposition storage _prop = proposition[_prop_id];
         uint256 i;
         uint256 tot = 0;
         uint256 num;
-        if(_prop.voter_unhashedVote[_voter] == VoteOption.True){
-            num = _prop.T_voters.length;
+        if(this_vote.vote_unhashed == VoteOption.True){
+            num = _prop.T_vote_indexes.length;
             for(i = 0; i < num; i++){
-                tot += _prop.prediction_certainty[_prop.T_voters[i]];
+                tot += _prop.votes[_prop.T_vote_indexes[i]].prediction;
             }
         }else{
-            num = _prop.F_voters.length;
+            num = _prop.F_vote_indexes.length;
             for(i = 0; i < num; i++){
-               tot += _prop.prediction_certainty[_prop.F_voters[i]];
+               tot += _prop.votes[_prop.F_vote_indexes[i]].prediction;
             }
         }
-        tot -= _prop.prediction_certainty[_voter];
+        tot -= this_vote.prediction;
         require(num != 0 , "Division by zero!");
         return tot/num; 
     }

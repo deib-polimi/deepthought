@@ -192,9 +192,12 @@ def main():
                             insert = input('Do you want to reveal your vote about the "Reveal" proposition?(y/n): ')
                             if insert == 'y':
                                 prop_id = int(input('Proposition id: '))
+                                nu_times_voted = int(contract.functions.get_n_voted_times(prop_id).call())
+                                print('You have voted this proposition ' + str(nu_times_voted) + 'times!')
+                                vote_id = int(input('Wich one do you want to reveal?: '))
                                 salt = bytes(input('Insert your salt to reveal your vote (YOU HAD TO REMEMBER IT!): '),'utf-8')
 
-                                contract.functions.reveal_voter_hashed_vote(prop_id, salt).transact()
+                                contract.functions.reveal_voter_hashed_vote(prop_id, salt, vote_id - 1).transact()
 
                     elif insert == 3: #GO BACK
 

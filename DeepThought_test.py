@@ -53,7 +53,7 @@ def main():
         start = time()
 
         n_prop = 2
-        voters = 10
+        voters = 2
         adv_control = 0.25
         accuracy = 0.95
         prop_list = []
@@ -155,7 +155,9 @@ def main():
             voter = web3.eth.accounts[i % voters]
 
             if(prop_id not in voter_revealed[i % voters]):
-                contract.functions.reveal_voter_hashed_vote(voters_prop_voted[i], voters_salt[i]).transact({'from': voter})
+                n_times_voted = int(contract.functions.get_n_voted_times(prop_id).call({'from':voter}))
+                for j in range(n_times_voted):
+                    contract.functions.reveal_voter_hashed_vote(voters_prop_voted[i], voters_salt[i], j).transact({'from': voter})
                 voter_revealed[i % voters].append(prop_id)
     #        print("Revealing vote:", i)
             #if i % 1000 == 0:
