@@ -467,8 +467,8 @@ contract DeepThought {
         elaborate_votes_weight(_prop_id);
         elaborate_certifications_weight(_prop_id);
         set_outcome(_prop_id);
-        create_scoreboard(_prop_id);
-        distribute_rewards(_prop_id);
+        //create_scoreboard(_prop_id); Not used for testing pourpose (it is not useful for tests and it make slower the transactions)
+        //distribute_rewards(_prop_id); Not used for testing pourpose (it is not useful for tests and it make slower the transactions)
         distribute_reputation(_prop_id);
     }
 

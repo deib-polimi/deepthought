@@ -26,7 +26,7 @@ def test_init(n_max_votes, alfa, beta):
     # truffle development blockchain address
 
     # Client instance to interact with the blockchain
-    web3 = Web3(HTTPProvider(ganache_blockchain_address,  request_kwargs={'timeout': 100000}))
+    web3 = Web3(HTTPProvider(ganache_blockchain_address,  request_kwargs={'timeout': 500}))
 
     with open(compiled_contract_path) as file:
         contract_json = json.load(file)  # load contract info as JSON
