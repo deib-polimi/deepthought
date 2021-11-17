@@ -86,6 +86,8 @@ contract DeepThought {
 
         uint256 score;
 
+        uint256 vote_weigth;
+
     }
     
     struct Proposition {
@@ -143,10 +145,10 @@ contract DeepThought {
         // Scoreboard: importance order
         Vote[] scoreboard;
 
-        // Voters submitting vote T
+        // Votes submitting vote T
         uint256[] T_vote_indexes;
         
-        // Voters submitting vote F
+        // Votes submitting vote F
         uint256[] F_vote_indexes;
         
         //Certifiers submitting cert T
@@ -154,6 +156,12 @@ contract DeepThought {
 
         //Certifiers submitting cert F
         address[] F_certifiers;
+
+        //voter > final vote_weigth balance
+        mapping(address => int256) vote_balance;
+
+        //voter > has the reputation updated
+        mapping(address => bool) rep_updated;
     }
 
     /* ### EVENTS ### */
@@ -164,14 +172,14 @@ contract DeepThought {
     /* ### CONSTRUCTORS ### */
     
     constructor(uint256 _n_max_votes, uint256 _alfa, uint256 _beta){
-        //n_max_votes = 20;
+        //n_max_votes = 3;
         n_max_votes = _n_max_votes;
         
         max_reputation = 100;
         
         lost_reward_pool = 0;
         
-        //alfa = 70;
+        //lfa = 70;
         alfa = _alfa;
         
         //beta = 30;
@@ -422,7 +430,7 @@ contract DeepThought {
         uint256 stake = ask_to_vote_stake[msg.sender][_prop_id];
         ask_to_vote_stake[msg.sender][_prop_id] = 0;
 
-        prop.votes.push(Vote(msg.sender, VoteOption.Unknown, _hashed_vote, stake, _predictionPercent, 0));
+        prop.votes.push(Vote(msg.sender, VoteOption.Unknown, _hashed_vote, stake, _predictionPercent, 0, 0));
         prop.voted_indexes[msg.sender].push(prop.votes.length - 1);
         prop.voters_stake_pool += stake;
 
@@ -510,11 +518,15 @@ contract DeepThought {
         require(prop.status == PropositionStatus.RevealingClose, "Should be Close");
 
         for(uint i=0; i < prop.T_vote_indexes.length; i++){
-            prop.partial_outcome[VoteOption.True] += normalize_voter_vote_weight(prop.votes[prop.T_vote_indexes[i]]);
+            uint256 vote_weigth = normalize_voter_vote_weight(prop.votes[prop.T_vote_indexes[i]]);
+            prop.partial_outcome[VoteOption.True] += vote_weigth;
+            prop.votes[prop.T_vote_indexes[i]].vote_weigth = vote_weigth;
         }
 
         for(uint i=0; i < prop.F_vote_indexes.length; i++){
-            prop.partial_outcome[VoteOption.False] += normalize_voter_vote_weight(prop.votes[prop.F_vote_indexes[i]]);
+            uint256 vote_weigth = normalize_voter_vote_weight(prop.votes[prop.F_vote_indexes[i]]);
+            prop.partial_outcome[VoteOption.False] += vote_weigth;
+            prop.votes[prop.F_vote_indexes[i]].vote_weigth = vote_weigth;
         }
 
     }
@@ -538,17 +550,34 @@ contract DeepThought {
         Proposition storage prop = proposition[_prop_id];
         require(prop.status == PropositionStatus.RevealingClose, "Should be Close");
 
+
         // Change the voters reputation according to the proposition outcome
-        for(uint256 i = 0; i < prop.votes.length; i++){
+        for(uint256 i = 0; i < prop.votes.length ; i++){
             address voter_addr = prop.votes[i].voter;
             if(prop.votes[i].vote_unhashed == prop.outcome){
-                increment_reputation(voter_addr);
+                prop.vote_balance[voter_addr] += int256(prop.votes[i].vote_weigth);
             }else{
                 if(prop.outcome != VoteOption.Unknown){
-                    decrement_reputation(voter_addr);
+                    prop.vote_balance[voter_addr] -= int256(prop.votes[i].vote_weigth);
                 }
             }
         }
+
+        for(uint256 i = 0; i < prop.votes.length ; i++){
+            address voter_addr = prop.votes[i].voter;
+            if(prop.rep_updated[voter_addr] == false){
+                if(prop.vote_balance[voter_addr] > 0){
+                    increment_reputation(voter_addr);
+                }else{
+                    if(prop.vote_balance[voter_addr] < 0){
+                        decrement_reputation(voter_addr);
+                    }
+                }
+                prop.rep_updated[voter_addr] = true;
+            }
+        }
+
+
 
         for(uint256 j = 0; j < prop.certifiers_list.length; j++){
             address cert_addr = prop.certifiers_list[j];
