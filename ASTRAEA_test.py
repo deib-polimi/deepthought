@@ -186,7 +186,7 @@ def main():
 
         data = [voters, n_prop, accuracy, adv_control, corrupted_prop, 1 if "False" in outcome else 0, round(elapsed_time, 2)]
 
-        with open('results.csv', 'a', encoding='UTF8', newline='') as f:
+        with open('results_ASTRAEA.csv', 'a', encoding='UTF8', newline='') as f:
             writer = csv.writer(f)
             #writer.writerow(header)
             writer.writerow(data)
