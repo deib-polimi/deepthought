@@ -52,8 +52,8 @@ def main():
         sleep(5)
         start = time()
 
-        n_prop = 2
-        voters = 4
+        n_prop = 100
+        voters = 20
 
         if(k % 2 == 0):
             accuracy = 0.8
