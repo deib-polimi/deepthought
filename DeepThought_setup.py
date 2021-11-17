@@ -2,7 +2,7 @@ import json
 from web3 import Web3, HTTPProvider
 
 # truffle development blockchain address
-ganache_blockchain_address = 'http://127.0.0.1:8545'
+ganache_blockchain_address = 'http://127.0.0.1:7545'
 # Path to the compiled contract JSON file
 compiled_contract_path = 'build/contracts/DeepThought.json'
 # Deployed contract address (see `migrate` command output: `contract address`)
