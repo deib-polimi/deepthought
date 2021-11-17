@@ -13,7 +13,7 @@ deployed_contract_address = '0x6aEe96064Ba720cd58A218c7E52ea6cF091D5282'
 def init():
 
     # Client instance to interact with the blockchain
-    web3 = Web3(HTTPProvider(ganache_blockchain_address, request_kwargs={'timeout': 60}))
+    web3 = Web3(HTTPProvider(ganache_blockchain_address, request_kwargs={'timeout': 100}))
 
     with open(compiled_contract_path) as file:
         contract_json = json.load(file)  # load contract info as JSON
@@ -29,7 +29,7 @@ def set(voter_stake_max, cert_target, closing_voting_stake, certifier_stake_min)
     # truffle development blockchain address
 
     # Client instance to interact with the blockchain
-    web3 = Web3(HTTPProvider(ganache_blockchain_address,  request_kwargs={'timeout': 60}))
+    web3 = Web3(HTTPProvider(ganache_blockchain_address,  request_kwargs={'timeout': 500}))
 
     with open(compiled_contract_path) as file:
         contract_json = json.load(file)  # load contract info as JSON

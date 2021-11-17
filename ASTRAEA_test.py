@@ -9,7 +9,7 @@
 import ASTRAEA_setup
 import random
 import string
-from time import time, sleep
+from time import time, sleep, asctime
 import csv
 from tqdm import tqdm
 import subprocess
@@ -19,7 +19,8 @@ process = 0
 
 
 def exit_handler():
-    print("Killing all the processes..")
+    print("\nExit data:", asctime())
+    print("\nKilling all the processes..\n")
     if process.poll() is None:
         process.kill()
 
@@ -43,18 +44,34 @@ def main():
 ,'   `-' `---'  `-'    `'  ` ,'   `-' '`--' ,'   `-'""")
     global process
     atexit.register(exit_handler)
-    for k in range(5):
-        print("Test n.", k+1)
+    for k in range(60):
+        print("\nTest n.", k+1)
         print("\nStarting Ganache..")
 
-        process = subprocess.Popen(["ganache-cli", "-a", "100", "-p", "7545"], shell=True, stdout=subprocess.DEVNULL)
-        sleep(5)
+        process = subprocess.Popen(["ganache-cli", "-a", "100", "-p", "7545"], stdout=subprocess.DEVNULL)
+        sleep(7)
         start = time()
 
         n_prop = 100
         voters = 20
-        adv_control = 0.25
-        accuracy = 0.95
+        accuracy = 0.8
+
+        if k < 10:
+            adv_control = 0
+        if k >= 10 and k < 20:
+            adv_control = 0.05
+        if k >= 20 and k < 30:
+            adv_control = 0.25
+        if k >= 30 and k < 40:
+            adv_control = 0
+            accuracy = 0.95
+        if k >= 40 and k < 50:
+            adv_control = 0.05
+            accuracy = 0.95
+        if k >= 50:
+            adv_control = 0.25
+            accuracy = 0.95
+
         prop_list = []
         voters_salt = []
         voters_vote = []
@@ -141,8 +158,6 @@ def main():
             voter = web3.eth.accounts[i % voters]
             contract.functions.reveal_voter_sealed_vote(voters_prop_voted[i], voters_vote[i], voters_salt[i]).transact({'from': voter})
     #        print("Revealing vote:", i)
-            #if i % 1000 == 0:
-             #   print("Revealing vote:", i)
 
         end = time()
 
