@@ -61,11 +61,11 @@ def main():
             accuracy = 0.95
 
         if(k % 3 == 0):
-            adv_control = 0
+            adv_control = 0.25
         elif(k % 3 == 1):
             adv_control = 0.05
         else:
-            adv_control = 0.25
+            adv_control = 0
 
         # Smart Contract parameters
         alfa = 70

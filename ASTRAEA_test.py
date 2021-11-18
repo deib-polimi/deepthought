@@ -2,8 +2,7 @@
 @Author: Italiano Lorenzo
 
 @TEST STEPS:
-1) start ganache-cli: ganache-cli --a 100 -p 7545
-2) start ASTRAEA_TEST.py: py ASTRAEA_test.py
+start ASTRAEA_TEST.py: py ASTRAEA_test.py
 '''
 
 import ASTRAEA_setup
@@ -48,29 +47,25 @@ def main():
         print("\nTest n.", k+1)
         print("\nStarting Ganache..")
 
-        process = subprocess.Popen(["ganache-cli", "-a", "100", "-p", "7545"], stdout=subprocess.DEVNULL)
+        process = subprocess.Popen(["ganache-cli", "-a", "20", "-p", "7545"], stdout=subprocess.DEVNULL)
         sleep(7)
         start = time()
 
         n_prop = 100
         voters = 20
-        accuracy = 0.8
 
-        if k < 10:
-            adv_control = 0
-        if k >= 10 and k < 20:
+        if k<15:
+            accuracy = 0.8
             adv_control = 0.05
-        if k >= 20 and k < 30:
+        if k>=15 and k<30:
+            accuracy = 0.8
             adv_control = 0.25
-        if k >= 30 and k < 40:
-            adv_control = 0
+        if k>=30 and k<45:
             accuracy = 0.95
-        if k >= 40 and k < 50:
             adv_control = 0.05
+        if k>=45:
             accuracy = 0.95
-        if k >= 50:
             adv_control = 0.25
-            accuracy = 0.95
 
         prop_list = []
         voters_salt = []
