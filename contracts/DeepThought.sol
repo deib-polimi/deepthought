@@ -738,7 +738,7 @@ contract DeepThought {
     function normalize_voter_vote_weight(Vote storage this_vote) internal view returns(uint256) {
         uint256 stake = this_vote.stake;
         uint256 rep = reputation[this_vote.voter];
-        return ((alfa * sqrt(stake) + (100 - alfa) * (stake))/100) * sqrt(rep * 10000)/10000;
+        return ((alfa * sqrt(stake) + (100 - alfa) * (stake))/100) * sqrt(rep * 10000)/100;
     }
 
     // Calculate the vote weight of a certifier for a proposition
@@ -752,14 +752,14 @@ contract DeepThought {
         }
     
         uint256 rep = reputation[_certifier];
-        return ((alfa * sqrt(stake) + (100 - alfa) * stake)/100) * sqrt(rep * 10000)/10000;
+        return ((alfa * sqrt(stake) + (100 - alfa) * stake)/100) * sqrt(rep * 10000)/100;
     }
 
     // Calculate the reward of a voter for a proposition
     function compute_voter_reward(Vote storage this_vote) internal view returns(uint256) {
         uint256 stake = this_vote.stake;
         uint256 rep = reputation[this_vote.voter];
-        return (beta * (stake ** 2) + (100 - beta) * (stake + stake * sqrt(rep * 10000)/10000))/100;
+        return (beta * (stake ** 2) + (100 - beta) * (stake + stake * sqrt(rep * 10000)/100))/100;
     }
 
     // Calculate the reward of a certifier for a proposition
