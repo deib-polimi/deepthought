@@ -71,10 +71,8 @@ def main():
         alfa = 70
         beta = 30
 
-
         prop_list = []
         
-
         corrupted_prop = 0
 
         const_prediction_true = 77

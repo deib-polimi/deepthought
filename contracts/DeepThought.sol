@@ -448,6 +448,7 @@ contract DeepThought {
         Proposition storage prop = proposition[_prop_id];
         require(prop.status == PropositionStatus.VotingClose, "Proposition is not in the reveal phase!");
         bytes32 hashed_vote = prop.votes[prop.voted_indexes[msg.sender][index]].vote_hashed;
+
         if(hashed_vote == keccak256(abi.encodePacked(_prop_id, true, _salt))){
             // Vote was true
             prop.votes[prop.voted_indexes[msg.sender][index]].vote_unhashed = VoteOption.True;
@@ -656,10 +657,16 @@ contract DeepThought {
         require(prop.status == PropositionStatus.RevealingClose, "Should be Close");
         VoteOption voter_result = VoteOption.Unknown;
         VoteOption cert_result = VoteOption.Unknown;
+
         if(prop.partial_outcome[VoteOption.True] > prop.partial_outcome[VoteOption.False]) voter_result = VoteOption.True;
-        if(prop.partial_outcome[VoteOption.False] > prop.partial_outcome[VoteOption.True]) voter_result = VoteOption.False;
+        else{
+            if(prop.partial_outcome[VoteOption.False] > prop.partial_outcome[VoteOption.True]) voter_result = VoteOption.False;
+        }
+
         if(prop.certification[VoteOption.True] > prop.certification[VoteOption.False]) cert_result = VoteOption.True;
-        if(prop.certification[VoteOption.False] > prop.certification[VoteOption.True]) cert_result = VoteOption.False;
+        else{
+            if(prop.certification[VoteOption.False] > prop.certification[VoteOption.True]) cert_result = VoteOption.False;
+        }
 
         if(voter_result == cert_result || cert_result == VoteOption.Unknown) prop.outcome = voter_result;
     }  
@@ -731,7 +738,7 @@ contract DeepThought {
     function normalize_voter_vote_weight(Vote storage this_vote) internal view returns(uint256) {
         uint256 stake = this_vote.stake;
         uint256 rep = reputation[this_vote.voter];
-        return alfa * sqrt(stake) + (100 - alfa) * (stake + stake**sqrt(rep));
+        return ((alfa * sqrt(stake) + (100 - alfa) * (stake))/100) * sqrt(rep * 10000)/10000;
     }
 
     // Calculate the vote weight of a certifier for a proposition
@@ -745,14 +752,14 @@ contract DeepThought {
         }
     
         uint256 rep = reputation[_certifier];
-        return alfa * sqrt(stake) + (100 - alfa) * (stake + stake*sqrt(rep));
+        return ((alfa * sqrt(stake) + (100 - alfa) * stake)/100) * sqrt(rep * 10000)/10000;
     }
 
     // Calculate the reward of a voter for a proposition
     function compute_voter_reward(Vote storage this_vote) internal view returns(uint256) {
         uint256 stake = this_vote.stake;
         uint256 rep = reputation[this_vote.voter];
-        return (beta * (stake ** 2) + (100 - beta) * (stake + stake*rep/max_reputation))/100;
+        return (beta * (stake ** 2) + (100 - beta) * (stake + stake * sqrt(rep * 10000)/10000))/100;
     }
 
     // Calculate the reward of a certifier for a proposition
