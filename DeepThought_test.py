@@ -44,7 +44,7 @@ def main():
 88eee8 88ee 88ee 88    88  88  8 8eee8 88ee8 88ee8 88  8   88 \n''')
     global process
     atexit.register(exit_handler)
-    for k in range(6):
+    for k in range(100):
         print("Test n.", k+1)
         print("\nStarting Ganache..")
 

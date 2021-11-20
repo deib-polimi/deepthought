@@ -425,7 +425,7 @@ contract ASTRAEA {
     function elaborate_result_proposition(uint256 _prop_id) internal {
         stop_revealing_proposition(_prop_id);
         set_outcome(_prop_id);
-        distribute_reward(_prop_id);
+        //distribute_reward(_prop_id); Commented to run tests faster
     }
 
      // Change status of proposition Open > VotingClosed
