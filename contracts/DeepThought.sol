@@ -476,8 +476,8 @@ contract DeepThought {
         elaborate_votes_weight(_prop_id);
         elaborate_certifications_weight(_prop_id);
         set_outcome(_prop_id);
-        //create_scoreboard(_prop_id); Not used for testing pourpose (it is not useful for tests and it make slower the transactions)
-        //distribute_rewards(_prop_id); Not used for testing pourpose (it is not useful for tests and it make slower the transactions)
+        create_scoreboard(_prop_id);
+        distribute_rewards(_prop_id);
         distribute_reputation(_prop_id);
     }
 
@@ -801,7 +801,7 @@ contract DeepThought {
         uint pred_mean = prediction_mean(this_vote, _prop_id);
         while(w == VoteOption.Unknown)
         {
-            w = prop.votes[random(prop.votes.length)].vote_unhashed;
+            w = prop.votes[random(prop.votes.length)].vote_unhashed; //MPPO
         }
         pred_score = w == VoteOption.True ? 200 * q - q ** 2 : 10000 - q ** 2;
         info_score = pred_mean > q ? 10000 - (pred_mean - q) ** 2 : 10000 - (q - pred_mean) ** 2;

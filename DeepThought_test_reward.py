@@ -55,21 +55,15 @@ def main():
         n_prop = 100
         voters = 20
 
-        if(k % 2 == 0):
-            accuracy = 0.8
-        else:
-            accuracy = 0.95
-
-        if(k % 4 == 0 or k % 4 == 1):
-            adv_control = 0.05
-        else:
-            adv_control = 0.25
+        accuracy = 0.8
+        adv_control = 0.25
 
         # Smart Contract parameters
         alfa = 70
         beta = 30
 
         prop_list = []
+        rewards = []
         
         corrupted_prop = 0
 
@@ -77,12 +71,13 @@ def main():
         const_prediction_false = 33
 
         web3, contract = DeepThought_setup.test_init(voters, alfa, beta)
-        submitter = web3.eth.accounts[0]
+        submitter = web3.eth.accounts[voters]
 
         ''' subscription phase'''
         for i in range(voters):
             voter = web3.eth.accounts[i]
             contract.functions.subscribe().transact({'from': voter})
+            rewards.append(int(contract.functions.get_balance().call({'from': voter})))
 
         ''' propositions' submission '''
         print("\nSubmitting the propositions..")
@@ -158,6 +153,11 @@ def main():
             if "False" in outcome:
                 corrupted_prop += 1
 
+        print("\nGet the rewards")
+        for i in tqdm(range(voters)):
+            voter = web3.eth.accounts[i]
+            rewards[i] = int(contract.functions.get_balance().call({'from': voter})) - rewards[i]
+
         outcome = str(contract.functions.get_outcome(target_prop_id).call(), 'utf-8')
         elapsed_time = end-start
 
@@ -172,14 +172,16 @@ def main():
 
         ''' save in results.csv '''
 
-        #header = ['voters', 'propositions', 'accuracy', 'adv_control', 'prop_corrupted', 'target_corrupted', 'elapsed_time','alfa','beta']
+        header = ['finalReward', 'honest/attacker', 'accuracy']
 
-        data = [voters, n_prop, accuracy, adv_control, corrupted_prop, 1 if "False" in outcome else 0, round(elapsed_time, 2), alfa, beta]
 
         with open('results_DeepThought.csv', 'a', encoding='UTF8', newline='') as f:
             writer = csv.writer(f)
             #writer.writerow(header)
-            writer.writerow(data)
+
+            for i in range(voters):
+                data = [rewards[i], 0 if i < voters - adv_control*voters else 1, accuracy if i < voters - adv_control*voters else 1]
+                writer.writerow(data)
 
         process.terminate()
         if process.poll() is None:
