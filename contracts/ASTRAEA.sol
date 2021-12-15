@@ -425,7 +425,7 @@ contract ASTRAEA {
     function elaborate_result_proposition(uint256 _prop_id) internal {
         stop_revealing_proposition(_prop_id);
         set_outcome(_prop_id);
-        //distribute_reward(_prop_id); Commented to run tests faster
+        distribute_reward(_prop_id); 
     }
 
      // Change status of proposition Open > VotingClosed
@@ -497,11 +497,13 @@ contract ASTRAEA {
         require(prop.status == PropositionStatus.Close, "Should be Close");
         VoteOption outcome = prop.outcome;
         uint256 reward;
+        uint256 stake;
         VoteOption opposite = (outcome == VoteOption.True) ? VoteOption.False : VoteOption.True;
 
         // Voter is rewarded if his vote agrees with the outcome, eventual penalties go in the reward_pool
         if(outcome != VoteOption.Unknown){
-            reward = prop.voter_stake[_voter][outcome] * (prop.bounty / prop.votes[outcome] + 1);
+            stake = prop.voter_stake[_voter][outcome];
+            reward = stake + (stake * prop.bounty) / prop.votes[outcome];
             cert_reward_pool[opposite] += prop.voter_stake[_voter][opposite];
         }
 
@@ -522,11 +524,13 @@ contract ASTRAEA {
         require(prop.status == PropositionStatus.Close, "Should be Close");
         VoteOption outcome = prop.outcome;
         uint256 reward;
+        uint256 stake;
         VoteOption opposite = (outcome == VoteOption.True) ? VoteOption.False : VoteOption.True;
 
         // Certifier is rewarded if the certification agrees with the outcome, eventual penalties and unclaimed bounties go in the reward_pool
         if(outcome != VoteOption.Unknown){
-            reward = prop.certifier_stake[_cert][outcome] * (cert_reward_pool[outcome] / (cert_target * prop.certificates[outcome]) + 1);
+            stake = prop.certifier_stake[_cert][outcome];
+            reward = (stake * cert_reward_pool[outcome]) / (cert_target * prop.certificates[outcome]) + stake;
             cert_reward_pool[opposite] += prop.certifier_stake[_cert][opposite] + prop.certifier_stake[_cert][VoteOption.Unknown];
         }
 
