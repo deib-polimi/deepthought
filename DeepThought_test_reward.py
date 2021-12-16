@@ -74,7 +74,7 @@ def main():
         submitter = web3.eth.accounts[voters]
 
         ''' subscription phase'''
-        for i in range(voters):
+        for i in range(voters + 1):
             voter = web3.eth.accounts[i]
             contract.functions.subscribe().transact({'from': voter})
             rewards.append(int(contract.functions.get_balance().call({'from': voter})))
@@ -84,7 +84,7 @@ def main():
         content = "deepthought"
 
         min_bounty = (web3.fromWei(int(contract.functions.get_min_bounty().call()), 'ether'))
-        print("Bounty: " + string(int(min_bounty * (10 ** 18))))
+        print("Bounty: ", int(min_bounty * (10 ** 18)))
 
         # create n propositions
         for i in tqdm(range(n_prop)):
