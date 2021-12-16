@@ -45,6 +45,14 @@ contract DeepThought {
 
     // Number of vote required to close a proposition
     uint256 n_max_votes;
+
+    uint256 min_voter_stake;
+
+    uint256 max_voter_stake;
+
+    uint256 min_certifier_stake;
+
+    uint256 max_certifier_stake;
     
     // Minimum value of the bounty
     uint256 min_bounty;
@@ -187,7 +195,15 @@ contract DeepThought {
 
         to_reward_perc = 50;
 
-        compute_min_bounty();
+        min_voter_stake = 1;
+
+        max_voter_stake = 10 ** 3;
+
+        min_certifier_stake = 10 ** 3;
+
+        max_certifier_stake = 10 ** 6;
+
+        min_bounty = to_reward_perc * (beta * (max_voter_stake ** 2) + (100 - beta) * (max_voter_stake + max_voter_stake * sqrt(max_reputation * 10000)/100))/10000 * n_max_votes - min_voter_stake * n_max_votes;
     }
 
     /* ### WORKFLOW ### */
@@ -212,19 +228,19 @@ contract DeepThought {
     }
 
     function get_min_stake_voter() public view returns (uint256){
-        return compute_min_voting_stake(msg.sender);
+        return min_voter_stake;
     }
 
     function get_max_stake_voter() public view returns (uint256){
-        return compute_max_voting_stake();
+        return max_voter_stake;
     }
 
     function get_min_stake_certifier() public view returns (uint256){
-        return compute_min_certifing_stake(msg.sender);
+        return min_certifier_stake;
     }
 
     function get_max_stake_certifier() public view returns (uint256){
-        return compute_max_certifing_stake();
+        return max_certifier_stake;
     }
 
     function get_number_propositions() public view returns (uint256){
@@ -357,8 +373,8 @@ contract DeepThought {
     function certification_request(uint256 _stake) public {
         require (ask_to_certify_stake[msg.sender] == 0, "Action already performed! Choose a proposition");
         require (balance[msg.sender] >= _stake, "Not enough money to certify");
-        require (_stake >= compute_min_certifing_stake(msg.sender), "The stake is not enough for your reputation");
-        require (_stake <= compute_max_certifing_stake(), "The stake is too high");
+        require (_stake >= min_certifier_stake, "The stake is not enough for your reputation");
+        require (_stake <= max_certifier_stake, "The stake is too high");
 
         ask_to_certify_stake[msg.sender] = _stake;
         balance[msg.sender] -= _stake;
@@ -406,8 +422,8 @@ contract DeepThought {
     
     // Put your stake to receive a random proposition (via event)
     function voting_request(uint256 _stake) public {
-        require (_stake >= compute_min_voting_stake(msg.sender), "The stake is not enough for your reputation");
-        require (_stake <= compute_max_voting_stake(), "The stake is too high");
+        require (_stake >= min_voter_stake, "The stake is not enough for your reputation");
+        require (_stake <= max_voter_stake, "The stake is too high");
         require (balance[msg.sender] >= _stake, "Not enough money to vote");
 
         uint256 prop_id = find_random_proposition();
@@ -706,33 +722,7 @@ contract DeepThought {
             }
         
         prop.scoreboard.push(to_write);
-    }   
-
-    // Calculate the minimum stake for a voter
-    function compute_min_voting_stake(address _voter) internal view returns (uint256) {
-        return stake_function(reputation[_voter]);
-    }
-
-    // Calculate the maximum stake for a voter
-    function compute_max_voting_stake() internal view returns (uint256) {
-        return stake_function(max_reputation);
-    }
-    
-    // Calculate the minimum stake for a certifier
-    function compute_min_certifing_stake(address _certifier) internal view returns (uint256) {
-        return stake_function(10 ** 3 *(reputation[_certifier] + max_reputation));
-    }
-    
-    // Calculate the maximum stake for a certifier
-    function compute_max_certifing_stake() internal view returns (uint256) {
-        return stake_function(10 ** 4 *(max_reputation));
-    }
-    
-    // Function used to calculate all the stake boundaries
-    // It represents a parabola with V=(1,1)
-    function stake_function(uint256 _rep) internal pure returns (uint256){
-        return 10 ** 3 * (_rep ** 2 - 2 * (_rep - 1));
-    }
+    }  
     
     // Calculate the vote weight of a voter for a proposition
     function normalize_voter_vote_weight(Vote storage this_vote) internal view returns(uint256) {
@@ -772,16 +762,6 @@ contract DeepThought {
         //certifier reward = stake
 
         return stake + addition;
-    }
-
-    function compute_min_bounty() internal{
-        uint256 voter_max_stake = compute_max_voting_stake();
-        uint256 voter_min_stake = stake_function((1));
-
-        min_bounty = to_reward_perc * (beta * (voter_max_stake ** 2) + (100 - beta) * (voter_max_stake + voter_max_stake*max_reputation/max_reputation))/10000 * n_max_votes - voter_min_stake * n_max_votes;
-
-        // Compute the min bounty 
-        
     }
     
     // Return a random propositon for a voter
