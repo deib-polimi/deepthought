@@ -44,11 +44,11 @@ def main():
 88eee8 88ee 88ee 88    88  88  8 8eee8 88ee8 88ee8 88  8   88 \n''')
     global process
     atexit.register(exit_handler)
-    for k in range(100):
+    for k in range(1):
         print("Test n.", k+1)
         print("\nStarting Ganache..")
 
-        process = subprocess.Popen(["ganache-cli", "-a", "20", "-p", "7545"], stdout=subprocess.DEVNULL)
+        process = subprocess.Popen(["ganache-cli", "-a", "21", "-p", "7545"], stdout=subprocess.DEVNULL)
         sleep(10)
         start = time()
 
@@ -172,10 +172,10 @@ def main():
 
         ''' save in results.csv '''
 
-        header = ['finalReward', 'honest/attacker', 'accuracy']
+        header = ['finalReward', 'attacker', 'accuracy']
 
 
-        with open('results_DeepThought.csv', 'a', encoding='UTF8', newline='') as f:
+        with open('DeepThought_reward_results.csv', 'a', encoding='UTF8', newline='') as f:
             writer = csv.writer(f)
             #writer.writerow(header)
 
