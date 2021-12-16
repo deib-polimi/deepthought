@@ -102,13 +102,13 @@ def main():
         # each voter as to vote a number of times equal to |P| in order to close al the proposition
         for _ in tqdm(range(n_prop)):
         
-            max_stake_voter = contract.functions.get_max_stake_voter().call()
+            stake_voter = 100
 
             # honest voters
             for i in range(voters - int(adv_control*voters)):
                 
                 voter = web3.eth.accounts[i]
-                tx_hash = contract.functions.voting_request(max_stake_voter).transact({'from': voter})
+                tx_hash = contract.functions.voting_request(stake_voter).transact({'from': voter})
                 prop_id = int(web3.eth.waitForTransactionReceipt(tx_hash)['logs'][0]['data'], 16)
 
                 
@@ -124,7 +124,7 @@ def main():
             # adversarial voters
             for i in range(voters - int(adv_control*voters), voters):
                 voter = web3.eth.accounts[i]
-                tx_hash = contract.functions.voting_request(max_stake_voter).transact({'from': voter})
+                tx_hash = contract.functions.voting_request(stake_voter).transact({'from': voter})
                 prop_id = int(web3.eth.waitForTransactionReceipt(tx_hash)['logs'][0]['data'], 16)
                 
                 salt = str(create_id(5))
@@ -177,7 +177,7 @@ def main():
 
         with open('DeepThought_reward_results.csv', 'a', encoding='UTF8', newline='') as f:
             writer = csv.writer(f)
-            #writer.writerow(header)
+            writer.writerow(header)
 
             for i in range(voters):
                 data = [rewards[i], 0 if i < voters - adv_control*voters else 1, accuracy if i < voters - adv_control*voters else 1]
