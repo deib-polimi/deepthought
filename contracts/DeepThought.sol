@@ -1,7 +1,6 @@
 pragma solidity >=0.8.0 <0.9.0;
 // SPDX-License-Identifier: UNLICENSED
 
-
 /*
  * @title: DeepThought
  * @dev: Voting and Reputation-based Oracle with the aim of verifying propositions
@@ -46,12 +45,16 @@ contract DeepThought {
     // Number of vote required to close a proposition
     uint256 n_max_votes;
 
+    // Minimum voter stake can pay for a vote
     uint256 min_voter_stake;
 
+    // Maximum voter stake can pay for a vote
     uint256 max_voter_stake;
 
+    // Minimum certifier stake can pay for a certification
     uint256 min_certifier_stake;
 
+    // Maximum certifier stake can pay for a certification
     uint256 max_certifier_stake;
     
     // Minimum value of the bounty
@@ -71,8 +74,6 @@ contract DeepThought {
 
     // Parameter for the Scoreboard reward mechanism
     uint256 to_reward_perc;
-
-
 
     /* ### STRUCTURES ### */
 

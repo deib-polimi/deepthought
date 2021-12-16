@@ -48,7 +48,7 @@ def main():
         print("Test n.", k+1)
         print("\nStarting Ganache..")
 
-        process = subprocess.Popen(["ganache-cli", "-a", "21", "-p", "7545"], stdout=subprocess.DEVNULL)
+        process = subprocess.Popen(["ganache-cli", "-a", "21", "-p", "7545", "-l" , "8000000"], stdout=subprocess.DEVNULL)
         sleep(10)
         start = time()
 
@@ -101,16 +101,16 @@ def main():
         ''' voting phase '''
         print("\n-- Voting Phase --")
 
+        max_stake_voter = contract.functions.get_max_stake_voter().call()
+
         # each voter as to vote a number of times equal to |P| in order to close al the proposition
         for _ in tqdm(range(n_prop)):
-        
-            stake_voter = 100
 
             # honest voters
             for i in range(voters - int(adv_control*voters)):
                 
                 voter = web3.eth.accounts[i]
-                tx_hash = contract.functions.voting_request(stake_voter).transact({'from': voter})
+                tx_hash = contract.functions.voting_request(max_stake_voter).transact({'from': voter})
                 prop_id = int(web3.eth.waitForTransactionReceipt(tx_hash)['logs'][0]['data'], 16)
 
                 
@@ -126,7 +126,7 @@ def main():
             # adversarial voters
             for i in range(voters - int(adv_control*voters), voters):
                 voter = web3.eth.accounts[i]
-                tx_hash = contract.functions.voting_request(stake_voter).transact({'from': voter})
+                tx_hash = contract.functions.voting_request(max_stake_voter).transact({'from': voter})
                 prop_id = int(web3.eth.waitForTransactionReceipt(tx_hash)['logs'][0]['data'], 16)
                 
                 salt = str(create_id(5))

@@ -48,7 +48,7 @@ def main():
         print("Test n.", k+1)
         print("\nStarting Ganache..")
 
-        process = subprocess.Popen(["ganache-cli", "-a", "20", "-p", "7545"], stdout=subprocess.DEVNULL)
+        process = subprocess.Popen(["ganache-cli", "-a", "20", "-p", "7545", "-l" , "8000000"], stdout=subprocess.DEVNULL)
         sleep(10)
         start = time()
 
@@ -87,13 +87,13 @@ def main():
         ''' propositions' submission '''
         print("\nSubmitting the propositions..")
         content = "deepthought"
-        min_bounty = (web3.fromWei(int(contract.functions.get_min_bounty().call()), 'ether'))
+        min_bounty = int(contract.functions.get_min_bounty().call())
 
         # create n propositions
         for i in tqdm(range(n_prop)):
             prop_id = create_id(8)
             prop_list.append(prop_id)
-            contract.functions.submit_proposition(prop_id, bytes(content, 'utf-8'), int(min_bounty * (10 ** 18))).transact({'from': submitter})
+            contract.functions.submit_proposition(prop_id, bytes(content, 'utf-8'), min_bounty).transact({'from': submitter})
             # print("Prop ", i, " submitted: ", prop_id)
 
         voter_to_prop_salts={v:{} for v in range(voters)}
@@ -104,10 +104,10 @@ def main():
         ''' voting phase '''
         print("\n-- Voting Phase --")
 
+        max_stake_voter = contract.functions.get_max_stake_voter().call()
+
         # each voter as to vote a number of times equal to |P| in order to close al the proposition
         for _ in tqdm(range(n_prop)):
-        
-            max_stake_voter = contract.functions.get_max_stake_voter().call()
 
             # honest voters
             for i in range(voters - int(adv_control*voters)):
