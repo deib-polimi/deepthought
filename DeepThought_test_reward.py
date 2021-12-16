@@ -83,11 +83,13 @@ def main():
         print("\nSubmitting the propositions..")
         content = "deepthought"
 
+        min_bounty = (web3.fromWei(int(contract.functions.get_min_bounty().call()), 'ether'))
+        print("Bounty: " + string(int(min_bounty * (10 ** 18))))
+
         # create n propositions
         for i in tqdm(range(n_prop)):
             prop_id = create_id(8)
             prop_list.append(prop_id)
-            min_bounty = (web3.fromWei(int(contract.functions.get_min_bounty().call()), 'ether'))
             contract.functions.submit_proposition(prop_id, bytes(content, 'utf-8'), int(min_bounty * (10 ** 18))).transact({'from': submitter})
             # print("Prop ", i, " submitted: ", prop_id)
 
