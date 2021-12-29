@@ -2,11 +2,11 @@ pragma solidity  >=0.8.0 <0.9.0;
 
 
 /*
- * @title: ASTRAEA
+ * @title: RASTRAEA
  * @dev:   Voting-based Oracle with the aim of verifying propositions
  * SPDX-License-Identifier: UNLICENSED
  */
-contract ASTRAEA {
+contract RASTRAEA {
 
     /* ### PARAMETERS OF THE ORACLE ### */
 

@@ -177,7 +177,7 @@ def main():
         header = ['finalReward', 'attacker', 'accuracy']
 
 
-        with open('DeepThought_reward_results.csv', 'a', encoding='UTF8', newline='') as f:
+        with open('../results/DeepThought_reward_results.csv', 'a', encoding='UTF8', newline='') as f:
             writer = csv.writer(f)
             writer.writerow(header)
 

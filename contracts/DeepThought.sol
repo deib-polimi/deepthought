@@ -465,7 +465,8 @@ contract DeepThought {
         Proposition storage prop = proposition[_prop_id];
         require(prop.status == PropositionStatus.VotingClose, "Proposition is not in the reveal phase!");
         bytes32 hashed_vote = prop.votes[prop.voted_indexes[msg.sender][index]].vote_hashed;
-
+        require(hashed_vote != "", "Vote already revealed!");
+        
         if(hashed_vote == keccak256(abi.encodePacked(_prop_id, true, _salt))){
             // Vote was true
             prop.votes[prop.voted_indexes[msg.sender][index]].vote_unhashed = VoteOption.True;
@@ -714,13 +715,13 @@ contract DeepThought {
         Proposition storage prop = proposition[_prop_id];
         Vote storage to_write = this_vote;
         Vote storage store;
-            for(uint i=0; i < prop.scoreboard.length; i++){
-                if(to_write.score > prop.scoreboard[i].score){
-                    store = prop.scoreboard[i];
-                    prop.scoreboard[i] = to_write;
-                    to_write = store;
-                }
+        for(uint i=0; i < prop.scoreboard.length; i++){
+            if(to_write.score > prop.scoreboard[i].score){
+                store = prop.scoreboard[i];
+                prop.scoreboard[i] = to_write;
+                to_write = store;
             }
+        }
         
         prop.scoreboard.push(to_write);
     }  
@@ -780,10 +781,7 @@ contract DeepThought {
         uint q = this_vote.prediction;
         VoteOption w = VoteOption.Unknown;
         uint pred_mean = prediction_mean(this_vote, _prop_id);
-        while(w == VoteOption.Unknown)
-        {
-            w = prop.votes[random(prop.votes.length)].vote_unhashed; //MPPO
-        }
+        w = prop.votes[random(prop.votes.length)].vote_unhashed; //MPPO
         pred_score = w == VoteOption.True ? 200 * q - q ** 2 : 10000 - q ** 2;
         info_score = pred_mean > q ? 10000 - (pred_mean - q) ** 2 : 10000 - (q - pred_mean) ** 2;
         return pred_score + info_score;

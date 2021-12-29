@@ -4,7 +4,7 @@ from web3 import Web3, HTTPProvider
 # truffle development blockchain address
 ganache_blockchain_address = 'http://127.0.0.1:7545'
 # Path to the compiled contract JSON file
-compiled_contract_path = 'build/contracts/ASTRAEA.json'
+compiled_contract_path = '../build/contracts/ASTRAEA.json'
 # Deployed contract address (see `migrate` command output: `contract address`)
 deployed_contract_address = '0x6aEe96064Ba720cd58A218c7E52ea6cF091D5282'
 

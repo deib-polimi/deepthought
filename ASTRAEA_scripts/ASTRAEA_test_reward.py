@@ -2,7 +2,7 @@
 @Author: Italiano Lorenzo
 
 @TEST STEPS:
-start ASTRAEA_TEST.py: py ASTRAEA_test.py
+start ASTRAEA_TEST_reward.py: python3 ASTRAEA_test_reward.py
 '''
 
 import ASTRAEA_setup
@@ -43,58 +43,50 @@ def main():
 ,'   `-' `---'  `-'    `'  ` ,'   `-' '`--' ,'   `-'""")
     global process
     atexit.register(exit_handler)
-    for k in range(60):
+    for k in range(1):
         print("\nTest n.", k+1)
         print("\nStarting Ganache..")
 
-        process = subprocess.Popen(["ganache-cli", "-a", "20", "-p", "7545"], stdout=subprocess.DEVNULL)
-        sleep(7)
-        start = time()
-
         n_prop = 100
         voters = 20
+        adv_control = 0.25
+        accuracy = 0.95
 
-        if k<15:
-            accuracy = 0.8
-            adv_control = 0.05
-        if k>=15 and k<30:
-            accuracy = 0.8
-            adv_control = 0.25
-        if k>=30 and k<45:
-            accuracy = 0.95
-            adv_control = 0.05
-        if k>=45:
-            accuracy = 0.95
-            adv_control = 0.25
+        process = subprocess.Popen(["ganache-cli", "-a", str(voters+1), "-p", "7545"], stdout=subprocess.DEVNULL)
+        sleep(10)
+        start = time()
 
         prop_list = []
         voters_salt = []
         voters_vote = []
         voters_prop_voted = []
+        rewards = []
         corrupted_prop = 0
 
         cert_target = 10
-        voter_stake_max = 10
-        certifier_stake_min = 100
+        voter_stake_max = 100
+        certifier_stake_min = 200
+        bounty = 1000
         closing_voting_stake = voter_stake_max * voters
 
         web3, contract = ASTRAEA_setup.set(voter_stake_max, cert_target, closing_voting_stake, certifier_stake_min)
-        submitter = web3.eth.accounts[0]
+        submitter = web3.eth.accounts[voters]
 
         ''' subscription phase'''
         for i in range(voters):
             voter = web3.eth.accounts[i]
             contract.functions.subscribe().transact({'from': voter})
-
+            rewards.append(int(contract.functions.get_balance().call({'from': voter})))
         ''' propositions' submission '''
         print("\nSubmitting the propositions..")
         content = "The meaning of life is 42"
 
         # create n propositions
+        contract.functions.subscribe().transact({'from': submitter})
         for i in tqdm(range(n_prop)):
             prop_id = create_id(8)
             prop_list.append(prop_id)
-            contract.functions.submit_proposition(prop_id, bytes(content, 'utf-8'), 100).transact({'from': submitter})
+            contract.functions.submit_proposition(prop_id, bytes(content, 'utf-8'), bounty).transact({'from': submitter})
             # print("Prop ", i, " submitted: ", prop_id)
 
         target_prop_id = prop_list[random.randint(0, n_prop-1)]
@@ -154,8 +146,6 @@ def main():
             contract.functions.reveal_voter_sealed_vote(voters_prop_voted[i], voters_vote[i], voters_salt[i]).transact({'from': voter})
     #        print("Revealing vote:", i)
 
-        end = time()
-
         ''' Check how many propositions have been corrupted '''
         print("\nCounting the votes..\n")
         for i in tqdm(range(n_prop)):
@@ -163,11 +153,16 @@ def main():
             if "False" in outcome:
                 corrupted_prop += 1
 
+        print("\nGet the rewards")
+        for i in tqdm(range(voters)):
+            voter = web3.eth.accounts[i]
+            rewards[i] = int(contract.functions.get_balance().call({'from': voter})) - rewards[i]
         outcome = str(contract.functions.get_outcome(target_prop_id).call(), 'utf-8')
-        elapsed_time = end-start
+        elapsed_time = time()-start
 
         print("-- RESULTS --\n")
         print("Propositions:", n_prop)
+        print("Bounties:", bounty)
         print("Voters:", voters)
         print(f"Adversarial Control: {adv_control*100}%")
         print(f"Accuracy Voters: {accuracy*100}%")
@@ -175,16 +170,19 @@ def main():
         print("Proposition Corrupted: ", corrupted_prop, "/", n_prop)
         print("Elapsed Time: ", elapsed_time)
 
-        ''' save in results.csv '''
+        ''' save in ASTRAEA_rewards.csv '''
 
         #header = ['voters', 'propositions', 'accuracy', 'adv_control', 'prop_corrupted', 'target_corrupted', 'elapsed_time']
 
         data = [voters, n_prop, accuracy, adv_control, corrupted_prop, 1 if "False" in outcome else 0, round(elapsed_time, 2)]
 
-        with open('results_ASTRAEA.csv', 'a', encoding='UTF8', newline='') as f:
+        with open('../results/ASTRAEA_rewards.csv', 'a', encoding='UTF8', newline='') as f:
             writer = csv.writer(f)
+            header = ['reward', 'adversarial', 'accuracy', 'stake']
             #writer.writerow(header)
-            writer.writerow(data)
+            for i in range(voters):
+                data = [rewards[i], 0 if i < voters - adv_control*voters else 1, accuracy if i < voters - adv_control*voters else 1, voter_stake_max]
+                writer.writerow(data)
 
         process.terminate()
         if process.poll() is None:

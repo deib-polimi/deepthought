@@ -175,9 +175,7 @@ def main():
 
                         hashedVote = web3.solidityKeccak(['uint256', 'bool', 'string'], [prop_id, vote, salt])
 
-                        vote_id = int(create_id())
-
-                        contract.functions.vote(prop_id, hashedVote, vote_id).transact()
+                        contract.functions.vote(prop_id, hashedVote).transact()
                         print("Nice! your vote has been recorded")
 
                     elif insert == 2: # VOTED STATUS
@@ -193,11 +191,10 @@ def main():
                                 if x == prop_id:
                                     index += 1
                             prop_list.append(prop_id)
-                            vote_id = int(contract.functions.get_vote_id_by_prop_id(prop_id, index).call())
                             status = str(contract.functions.get_prop_state(prop_id).call(), 'utf-8')
                             reveal = status.startswith('Reveal') or reveal
 
-                            out = 'Proposition: ' + str(prop_id) + ' -> ' + status + '\nVote ID: ' + str(vote_id)
+                            out = 'Proposition: ' + str(prop_id) + ' -> ' + status
                             if status.startswith('Close'):
                                 result = str(contract.functions.get_outcome(prop_id).call(), 'utf-8')
                                 earned = str(int(contract.functions.get_reward_voter_by_prop_id(prop_id).call()))
@@ -209,10 +206,12 @@ def main():
                             insert = input('Do you want to reveal your vote about the "Reveal" proposition?(y/n): ')
                             if insert == 'y':
                                 prop_id = int(input('Proposition id: '))
-                                vote_id = int(input('Vote id: '))
+                                nu_times_voted = int(contract.functions.get_n_voted_times(prop_id).call())
+                                print('You have voted this proposition ' + str(nu_times_voted) + ' times!')
+                                vote_id = int(input('Wich one do you want to reveal?: ')) # TODO: check that vote_id - 1 <= nu_times_voted
                                 salt = bytes(input('Insert your salt to reveal your vote (YOU HAD TO REMEMBER IT!): '), 'utf-8')
 
-                                contract.functions.reveal_voter_sealed_vote(prop_id, vote_id, salt).transact()
+                                contract.functions.reveal_voter_sealed_vote(prop_id, salt, vote_id - 1).transact()
 
                     elif insert == 3: # GO BACK
 
