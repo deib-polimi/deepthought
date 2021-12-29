@@ -1,0 +1,32 @@
+    voters  propositions  accuracy  ...  elapsed_time  alfa  beta
+0       20           100      0.80  ...       4131.85    70    30
+1       20           100      0.80  ...       2886.78    70    30
+2       20           100      0.95  ...       2721.62    70    30
+3       20           100      0.80  ...       2531.32    70    30
+4       20           100      0.95  ...       3123.54    70    30
+..     ...           ...       ...  ...           ...   ...   ...
+89      20           100      0.80  ...       2759.91    70    30
+90      20           100      0.95  ...       2863.68    70    30
+91      20           100      0.80  ...       3526.33    70    30
+92      20           100      0.95  ...       3552.20    70    30
+93      20           100      0.80  ...       2822.62    70    30
+
+[94 rows x 9 columns]
+
+CASE 1:
+voters : 20.0, propositions : 100.0, accuracy : 0.8, adv_control : 0.0, prop_corrupted : 0.0, num_test :  2
+
+CASE 2:
+voters : 20.0, propositions : 100.0, accuracy : 0.8, adv_control : 0.05, prop_corrupted : 0.30434782608695654, num_test :  23
+
+CASE 3:
+voters : 20.0, propositions : 100.0, accuracy : 0.8, adv_control : 0.25, prop_corrupted : 2.130434782608696, num_test :  23
+
+CASE 4:
+voters : 20.0, propositions : 100.0, accuracy : 0.95, adv_control : 0.0, prop_corrupted : 0.0, num_test :  1
+
+CASE 5:
+voters : 20.0, propositions : 100.0, accuracy : 0.95, adv_control : 0.05, prop_corrupted : 0.0, num_test :  23
+
+CASE 6:
+voters : 20.0, propositions : 100.0, accuracy : 0.95, adv_control : 0.25, prop_corrupted : 0.0, num_test :  22
