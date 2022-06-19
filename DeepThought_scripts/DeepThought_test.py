@@ -44,7 +44,7 @@ def main():
 88eee8 88ee 88ee 88    88  88  8 8eee8 88ee8 88ee8 88  8   88 \n''')
     global process
     atexit.register(exit_handler)
-    for k in range(100):
+    for k in range(40):
         print("Test n.", k+1)
         print("\nStarting Ganache..")
 
@@ -54,16 +54,13 @@ def main():
 
         n_prop = 100
         voters = 20
+        adv_control = 0.00
 
         if(k % 2 == 0):
             accuracy = 0.8
         else:
             accuracy = 0.95
 
-        if(k % 4 == 0 or k % 4 == 1):
-            adv_control = 0.05
-        else:
-            adv_control = 0.25
 
         # Smart Contract parameters
         alfa = 70
