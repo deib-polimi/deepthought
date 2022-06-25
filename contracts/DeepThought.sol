@@ -23,7 +23,7 @@ contract DeepThought {
     mapping (address => uint256) balance;
 
     // Reputation of each address
-    mapping (address => uint256) reputation;
+    mapping (address => uint8) reputation;
 
     // Voter > prop_id | stake voter spent to vote a proposition  
     mapping (address => mapping(uint256 => uint256)) ask_to_vote_stake;
@@ -41,9 +41,6 @@ contract DeepThought {
     mapping (address => uint256[]) submitted_propositions;
     
     /* ### PARAMETERS OF THE ORACLE ### */
-
-    // Number of vote required to close a proposition
-    uint256 n_max_votes;
 
     // Minimum voter stake can pay for a vote
     uint256 min_voter_stake;
@@ -64,16 +61,19 @@ contract DeepThought {
     uint256 lost_reward_pool;
     
     // Maximum reputation value for a voter
-    uint256 max_reputation;
+    uint8 max_reputation;
 
     // Parameter for vote weight calculation
-    uint256 alfa;
+    uint8 alfa;
 
     // Parameter for reward calculation
-    uint256 beta;
+    uint8 beta;
 
     // Parameter for the Scoreboard reward mechanism
-    uint256 to_reward_perc;
+    uint8 to_reward_perc;
+
+    // Number of vote required to close a proposition
+    uint8 n_max_votes;
 
     /* ### STRUCTURES ### */
 
@@ -83,15 +83,15 @@ contract DeepThought {
 
     struct Vote {
 
-        address voter;
-
         VoteOption vote_unhashed;
+
+        address voter;
 
         bytes32 vote_hashed;
 
         uint256 stake;
 
-        uint256 prediction;
+        uint8 prediction;
 
         uint256 score;
 
@@ -100,11 +100,11 @@ contract DeepThought {
     }
     
     struct Proposition {
-        // Unique proposition ID
-        uint256 id;
-
         // Submitter address
         address submitter;
+
+        // Unique proposition ID
+        uint256 id;
         
         // Content of the proposition
         bytes32 content;
@@ -180,7 +180,7 @@ contract DeepThought {
 
     /* ### CONSTRUCTORS ### */
     
-    constructor(uint256 _n_max_votes, uint256 _alfa, uint256 _beta){
+    constructor(uint8 _n_max_votes, uint8 _alfa, uint8 _beta){
         //n_max_votes = 3;
         n_max_votes = _n_max_votes;
         
@@ -436,7 +436,7 @@ contract DeepThought {
     }
     
     // Vote for the proposition you received
-    function vote(uint256 _prop_id, bytes32 _hashed_vote, uint256 _predictionPercent) public {
+    function vote(uint256 _prop_id, bytes32 _hashed_vote, uint8 _predictionPercent) public {
         require (ask_to_vote_stake[msg.sender][_prop_id] > 0, "Not a voter of that proposition! Make a request");
 
         // Get the proposition
@@ -447,7 +447,7 @@ contract DeepThought {
         uint256 stake = ask_to_vote_stake[msg.sender][_prop_id];
         ask_to_vote_stake[msg.sender][_prop_id] = 0;
 
-        prop.votes.push(Vote(msg.sender, VoteOption.Unknown, _hashed_vote, stake, _predictionPercent, 0, 0));
+        prop.votes.push(Vote(VoteOption.Unknown, msg.sender, _hashed_vote, stake, _predictionPercent, 0, 0));
         prop.voted_indexes[msg.sender].push(prop.votes.length - 1);
         prop.voters_stake_pool += stake;
 
@@ -494,8 +494,8 @@ contract DeepThought {
         elaborate_votes_weight(_prop_id);
         elaborate_certifications_weight(_prop_id);
         set_outcome(_prop_id);
-        create_scoreboard(_prop_id);
-        distribute_rewards(_prop_id);
+        //create_scoreboard(_prop_id);
+        //distribute_rewards(_prop_id);
         distribute_reputation(_prop_id);
     }
 
