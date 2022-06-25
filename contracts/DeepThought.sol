@@ -23,7 +23,7 @@ contract DeepThought {
     mapping (address => uint256) balance;
 
     // Reputation of each address
-    mapping (address => uint8) reputation;
+    mapping (address => uint256) reputation;
 
     // Voter > prop_id | stake voter spent to vote a proposition  
     mapping (address => mapping(uint256 => uint256)) ask_to_vote_stake;
@@ -61,19 +61,19 @@ contract DeepThought {
     uint256 lost_reward_pool;
     
     // Maximum reputation value for a voter
-    uint8 max_reputation;
+    uint256 max_reputation;
 
     // Parameter for vote weight calculation
-    uint8 alfa;
+    uint256 alfa;
 
     // Parameter for reward calculation
-    uint8 beta;
+    uint256 beta;
 
     // Parameter for the Scoreboard reward mechanism
-    uint8 to_reward_perc;
+    uint256 to_reward_perc;
 
     // Number of vote required to close a proposition
-    uint8 n_max_votes;
+    uint256 n_max_votes;
 
     /* ### STRUCTURES ### */
 
@@ -91,7 +91,7 @@ contract DeepThought {
 
         uint256 stake;
 
-        uint8 prediction;
+        uint256 prediction;
 
         uint256 score;
 
@@ -180,7 +180,7 @@ contract DeepThought {
 
     /* ### CONSTRUCTORS ### */
     
-    constructor(uint8 _n_max_votes, uint8 _alfa, uint8 _beta){
+    constructor(uint256 _n_max_votes, uint256 _alfa, uint256 _beta){
         //n_max_votes = 3;
         n_max_votes = _n_max_votes;
         
@@ -326,8 +326,8 @@ contract DeepThought {
     /* ### UTILITY FUNCTIONS ### */
 
     // Generate a pseudo-random number from 0 to _max
-    function random(uint256 _max) internal view returns (uint8) {
-        return uint8(uint256(keccak256(abi.encodePacked(block.difficulty, block.timestamp, block.coinbase))) % _max);
+    function random(uint256 _max) internal view returns (uint256) {
+        return uint256(uint256(keccak256(abi.encodePacked(block.difficulty, block.timestamp, block.coinbase))) % _max);
     }
 
     // Get the square root of a number
@@ -436,7 +436,7 @@ contract DeepThought {
     }
     
     // Vote for the proposition you received
-    function vote(uint256 _prop_id, bytes32 _hashed_vote, uint8 _predictionPercent) public {
+    function vote(uint256 _prop_id, bytes32 _hashed_vote, uint256 _predictionPercent) public {
         require (ask_to_vote_stake[msg.sender][_prop_id] > 0, "Not a voter of that proposition! Make a request");
 
         // Get the proposition
