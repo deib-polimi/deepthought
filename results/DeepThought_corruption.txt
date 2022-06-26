@@ -1,32 +1,32 @@
-    voters  propositions  accuracy  ...  elapsed_time  alfa  beta
-0       20           100      0.80  ...       4131.85    70    30
-1       20           100      0.80  ...       2886.78    70    30
-2       20           100      0.95  ...       2721.62    70    30
-3       20           100      0.80  ...       2531.32    70    30
-4       20           100      0.95  ...       3123.54    70    30
-..     ...           ...       ...  ...           ...   ...   ...
-89      20           100      0.80  ...       2759.91    70    30
-90      20           100      0.95  ...       2863.68    70    30
-91      20           100      0.80  ...       3526.33    70    30
-92      20           100      0.95  ...       3552.20    70    30
-93      20           100      0.80  ...       2822.62    70    30
+     voters  propositions  accuracy  adv_control  prop_corrupted  target_corrupted  elapsed_time  alfa  beta
+1        20           100      0.80         0.25               2                 0       2886.78    70    30
+2        20           100      0.95         0.05               0                 0       2721.62    70    30
+3        20           100      0.80         0.00               0                 0       2531.32    70    30
+4        20           100      0.95         0.25               0                 0       3123.54    70    30
+5        20           100      0.80         0.05               0                 0       2445.11    70    30
+..      ...           ...       ...          ...             ...               ...           ...   ...   ...
+129      20           100      0.95         0.00               0                 0       2973.50    70    30
+130      20           100      0.80         0.00               0                 0       2738.75    70    30
+131      20           100      0.95         0.00               0                 0       2721.68    70    30
+132      20           100      0.80         0.00               0                 0       2575.95    70    30
+133      20           100      0.95         0.00               0                 0       2816.82    70    30
 
-[94 rows x 9 columns]
+[133 rows x 9 columns]
 
 CASE 1:
-voters : 20.0, propositions : 100.0, accuracy : 0.8, adv_control : 0.0, prop_corrupted : 0.0, num_test :  2
+voters : 20.0, propositions : 100.0, accuracy : 0.8, adv_control : 0.0, prop_corrupted_avg : 0.14285714285714285, prop_corrupted_std :  0.35856858280031806, prop_corrupted_min :  0, prop_corrupted_max :  1, num_test :  21
 
 CASE 2:
-voters : 20.0, propositions : 100.0, accuracy : 0.8, adv_control : 0.05, prop_corrupted : 0.30434782608695654, num_test :  23
+voters : 20.0, propositions : 100.0, accuracy : 0.8, adv_control : 0.05, prop_corrupted_avg : 0.30434782608695654, prop_corrupted_std :  0.5587959953568722, prop_corrupted_min :  0, prop_corrupted_max :  2, num_test :  23
 
 CASE 3:
-voters : 20.0, propositions : 100.0, accuracy : 0.8, adv_control : 0.25, prop_corrupted : 2.130434782608696, num_test :  23
+voters : 20.0, propositions : 100.0, accuracy : 0.8, adv_control : 0.25, prop_corrupted_avg : 2.130434782608696, prop_corrupted_std :  1.25424181466106, prop_corrupted_min :  0, prop_corrupted_max :  4, num_test :  23
 
 CASE 4:
-voters : 20.0, propositions : 100.0, accuracy : 0.95, adv_control : 0.0, prop_corrupted : 0.0, num_test :  1
+voters : 20.0, propositions : 100.0, accuracy : 0.95, adv_control : 0.0, prop_corrupted_avg : 0.0, prop_corrupted_std :  0.0, prop_corrupted_min :  0, prop_corrupted_max :  0, num_test :  21
 
 CASE 5:
-voters : 20.0, propositions : 100.0, accuracy : 0.95, adv_control : 0.05, prop_corrupted : 0.0, num_test :  23
+voters : 20.0, propositions : 100.0, accuracy : 0.95, adv_control : 0.05, prop_corrupted_avg : 0.0, prop_corrupted_std :  0.0, prop_corrupted_min :  0, prop_corrupted_max :  0, num_test :  23
 
 CASE 6:
-voters : 20.0, propositions : 100.0, accuracy : 0.95, adv_control : 0.25, prop_corrupted : 0.0, num_test :  22
+voters : 20.0, propositions : 100.0, accuracy : 0.95, adv_control : 0.25, prop_corrupted_avg : 0.0, prop_corrupted_std :  0.0, prop_corrupted_min :  0, prop_corrupted_max :  0, num_test :  22

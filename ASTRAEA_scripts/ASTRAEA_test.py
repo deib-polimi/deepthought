@@ -43,7 +43,7 @@ def main():
 ,'   `-' `---'  `-'    `'  ` ,'   `-' '`--' ,'   `-'""")
     global process
     atexit.register(exit_handler)
-    for k in range(60):
+    for k in range(20):
         print("\nTest n.", k+1)
         print("\nStarting Ganache..")
 
@@ -54,18 +54,8 @@ def main():
         n_prop = 100
         voters = 20
 
-        if k<15:
-            accuracy = 0.8
-            adv_control = 0.05
-        if k>=15 and k<30:
-            accuracy = 0.8
-            adv_control = 0.25
-        if k>=30 and k<45:
-            accuracy = 0.95
-            adv_control = 0.05
-        if k>=45:
-            accuracy = 0.95
-            adv_control = 0.25
+        accuracy = 0.80
+        adv_control = 0.35
 
         prop_list = []
         voters_salt = []
