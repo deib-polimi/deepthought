@@ -48,7 +48,7 @@ def main():
         print("Test n.", k+1)
         print("\nStarting Ganache..")
 
-        process = subprocess.Popen(["ganache-cli", "-a", "20", "-p", "7545", "-l" , "8000000"], stdout=subprocess.DEVNULL)
+        process = subprocess.Popen(["ganache-cli", "-a", "20", "-p", "7545"], stdout=subprocess.DEVNULL)
         sleep(10)
         start = time()
 
