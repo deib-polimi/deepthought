@@ -14,19 +14,19 @@
 [133 rows x 9 columns]
 
 CASE 1:
-voters : 20.0, propositions : 100.0, accuracy : 0.8, adv_control : 0.0, prop_corrupted_avg : 0.14285714285714285, prop_corrupted_std :  0.35856858280031806, prop_corrupted_min :  0, prop_corrupted_max :  1, num_test :  21
+voters : 20.0, propositions : 100.0, accuracy : 0.8, adv_control : 0.0, specific_target_corrupted_perc 0.0, prop_corrupted_avg : 0.14285714285714285, prop_corrupted_std :  0.35856858280031806, prop_corrupted_min :  0, prop_corrupted_max :  1, num_test :  21
 
 CASE 2:
-voters : 20.0, propositions : 100.0, accuracy : 0.8, adv_control : 0.05, prop_corrupted_avg : 0.30434782608695654, prop_corrupted_std :  0.5587959953568722, prop_corrupted_min :  0, prop_corrupted_max :  2, num_test :  23
+voters : 20.0, propositions : 100.0, accuracy : 0.8, adv_control : 0.05, specific_target_corrupted_perc 0.0, prop_corrupted_avg : 0.30434782608695654, prop_corrupted_std :  0.5587959953568722, prop_corrupted_min :  0, prop_corrupted_max :  2, num_test :  23
 
 CASE 3:
-voters : 20.0, propositions : 100.0, accuracy : 0.8, adv_control : 0.25, prop_corrupted_avg : 2.130434782608696, prop_corrupted_std :  1.25424181466106, prop_corrupted_min :  0, prop_corrupted_max :  4, num_test :  23
+voters : 20.0, propositions : 100.0, accuracy : 0.8, adv_control : 0.25, specific_target_corrupted_perc 0.0, prop_corrupted_avg : 2.130434782608696, prop_corrupted_std :  1.25424181466106, prop_corrupted_min :  0, prop_corrupted_max :  4, num_test :  23
 
 CASE 4:
-voters : 20.0, propositions : 100.0, accuracy : 0.95, adv_control : 0.0, prop_corrupted_avg : 0.0, prop_corrupted_std :  0.0, prop_corrupted_min :  0, prop_corrupted_max :  0, num_test :  21
+voters : 20.0, propositions : 100.0, accuracy : 0.95, adv_control : 0.0, specific_target_corrupted_perc 0.0, prop_corrupted_avg : 0.0, prop_corrupted_std :  0.0, prop_corrupted_min :  0, prop_corrupted_max :  0, num_test :  21
 
 CASE 5:
-voters : 20.0, propositions : 100.0, accuracy : 0.95, adv_control : 0.05, prop_corrupted_avg : 0.0, prop_corrupted_std :  0.0, prop_corrupted_min :  0, prop_corrupted_max :  0, num_test :  23
+voters : 20.0, propositions : 100.0, accuracy : 0.95, adv_control : 0.05, specific_target_corrupted_perc 0.0, prop_corrupted_avg : 0.0, prop_corrupted_std :  0.0, prop_corrupted_min :  0, prop_corrupted_max :  0, num_test :  23
 
 CASE 6:
-voters : 20.0, propositions : 100.0, accuracy : 0.95, adv_control : 0.25, prop_corrupted_avg : 0.0, prop_corrupted_std :  0.0, prop_corrupted_min :  0, prop_corrupted_max :  0, num_test :  22
+voters : 20.0, propositions : 100.0, accuracy : 0.95, adv_control : 0.25, specific_target_corrupted_perc 0.0, prop_corrupted_avg : 0.0, prop_corrupted_std :  0.0, prop_corrupted_min :  0, prop_corrupted_max :  0, num_test :  22
