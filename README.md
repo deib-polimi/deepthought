@@ -1,4 +1,5 @@
-# Oracle's Blockchain Research Project
+# DeepThought - a Reputation and Voting-based
+Blockchain Oracle
 
 To compile:
 ```
