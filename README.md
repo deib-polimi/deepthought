@@ -1,5 +1,4 @@
-# DeepThought - a Reputation and Voting-based
-Blockchain Oracle
+# DeepThought - a Reputation and Voting-based Blockchain Oracle
 
 To compile:
 ```
