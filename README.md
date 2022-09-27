@@ -1,6 +1,6 @@
 # DeepThought: a Reputation and Voting-based Blockchain Oracle
 
-DeepThought is a distributed human-based blockchain oracle that combines voting and reputation schemes. It is in development by a team composed of me, an M.Sc. student, and two postdocs. The aim is to validate external information before storing it in a blockchain relying on humans that collaboratively cross-check external information. In particular, the first part of the development shows that our approach achieves greater resistance to voter corruption in different configurations. A full paper on this work has been accepted at the International Conference on Service Oriented Computing 2022.
+DeepThought is a distributed human-based blockchain oracle that combines voting and reputation schemes. The aim is to validate external information before storing it in a blockchain relying on humans that collaboratively cross-check external information. In particular, the first part of the development shows that our approach achieves greater resistance to voter corruption in different configurations. A full paper on this work has been accepted at the International Conference on Service Oriented Computing 2022.
 
 ## Approach
 
