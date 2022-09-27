@@ -26,5 +26,5 @@ python DeepThought.py
 ```
 
 ## Paper
-You can find the paper [Here]()
+You can find the preprint paper [Here](https://arxiv.org/abs/2209.11032)
 
